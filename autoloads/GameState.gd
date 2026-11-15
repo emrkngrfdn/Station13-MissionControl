@@ -24,6 +24,7 @@ var quests_data: Dictionary = {}
 var room_code: String = ""
 var is_room_open: bool = false
 var is_room_host: bool = false
+var is_room_public: bool = false
 var last_join_error: String = ""
 var lobby_players: Array = [] # [{ "tag": "Commander#1042", "color": Color.CORAL, "is_host": true, "peer_id": 1 }]
 var is_solo: bool = true
@@ -45,8 +46,15 @@ var net_power_w: float = 0.0
 var data_gen_mbps: float = 0.0
 var downlink_mbps: float = 0.0
 var science_score: int = 0
-var landing_success_chance: int = 40
+var landing_success_chance: int = 15
 var downloaded_data_gb: float = 0.0
+var dsn_freq_value: float = 50.0
+var dsn_target_center: float = 24.0
+var dsn_station_idx: int = 0
+var dsn_station_timer: float = 0.0
+var active_crisis_id: String = ""
+var crisis_votes: Dictionary = {}
+var last_crisis_vote_result: Dictionary = {}
 
 # Özel Mekanikler (Mars Power Cycling / MOXIE 300W, JunoCam Radyasyon, DSN SSD)
 var power_cycling_enabled: bool = false
@@ -222,11 +230,17 @@ func _save_active_room_entry() -> void:
 			EventBus.lobby_updated.emit(lobby_players)
 
 	var port_num: int = int(rooms.get(room_code, {}).get("port", DEFAULT_PORT))
+	var host_tag: String = PlayerProfile.full_tag
+	if lobby_players.size() > 0:
+		host_tag = String(lobby_players[0].get("tag", PlayerProfile.full_tag))
 	rooms[room_code] = {
 		"room_code": room_code,
 		"port": port_num,
 		"updated_at": Time.get_unix_time_from_system(),
+		"is_public": is_room_public,
 		"is_mission_active": is_mission_active,
+		"host_name": host_tag,
+		"mission_name": String(current_mission.get("name", "")),
 		"mission_idx": current_mission_idx,
 		"modifier_idx": current_modifier_idx,
 		"rocket_id": String(selected_rocket.get("id", "")),
@@ -243,11 +257,49 @@ func _poll_active_room_as_client() -> void:
 		leave_room()
 		return
 	var r: Dictionary = rooms[room_code]
+	is_room_public = bool(r.get("is_public", true))
+	var remote_m: int = int(r.get("mission_idx", current_mission_idx))
+	var remote_mod: int = int(r.get("modifier_idx", current_modifier_idx))
+	var remote_site: String = String(r.get("site_id", ""))
+	if remote_m != current_mission_idx or remote_mod != current_modifier_idx:
+		setup_mission(remote_m, remote_mod)
+	if remote_site != "" and remote_site != String(selected_launch_site.get("id", "")):
+		select_launch_site(remote_site)
 	var synced_players: Array = _deserialize_players(r.get("players", []))
 	if synced_players.size() != lobby_players.size():
 		lobby_players = synced_players
 		is_solo = lobby_players.size() == 1
 		EventBus.lobby_updated.emit(lobby_players)
+
+func _generate_random_room_code() -> String:
+	var letters: String = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+	var p1: String = ""
+	for _i in range(3):
+		p1 += letters[randi() % letters.length()]
+	var num: int = randi_range(10, 99)
+	return "%s-%02d" % [p1, num]
+
+func get_public_rooms(filter_text: String = "") -> Array:
+	var rooms: Dictionary = _load_active_rooms()
+	var clean_filter: String = filter_text.strip_edges().to_lower()
+	var out: Array = []
+	for key in rooms.keys():
+		var r: Dictionary = rooms[key]
+		if not bool(r.get("is_public", false)):
+			continue
+		if bool(r.get("is_mission_active", false)):
+			continue
+		if clean_filter != "":
+			var code_l: String = String(r.get("room_code", "")).to_lower()
+			var host_l: String = String(r.get("host_name", "")).to_lower()
+			var mission_l: String = String(r.get("mission_name", "")).to_lower()
+			if not code_l.contains(clean_filter) and not host_l.contains(clean_filter) and not mission_l.contains(clean_filter):
+				continue
+		out.append(r)
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a.get("updated_at", 0.0)) > float(b.get("updated_at", 0.0))
+	)
+	return out
 
 func _remove_active_room_entry(code_to_remove: String) -> void:
 	if code_to_remove == "":
@@ -257,20 +309,28 @@ func _remove_active_room_entry(code_to_remove: String) -> void:
 		rooms.erase(code_to_remove)
 		_write_active_rooms(rooms)
 
-func create_room() -> String:
+func set_room_public(public_room: bool) -> void:
+	if is_room_open and not is_room_host:
+		return
+	is_room_public = public_room
+	if is_room_open:
+		_save_active_room_entry()
+	EventBus.telemetry_changed.emit()
+
+func create_room(public_room: bool = false) -> String:
 	leave_room()
 	reset_lobby()
+	randomize()
 	var rooms: Dictionary = _load_active_rooms()
-	var num: int = randi_range(10, 99)
-	var candidate: String = "JPL-%02d" % num
+	var candidate: String = _generate_random_room_code()
 	while rooms.has(candidate):
-		num = randi_range(10, 99)
-		candidate = "JPL-%02d" % num
+		candidate = _generate_random_room_code()
 
 	room_code = candidate
 	is_room_open = true
 	is_room_host = true
-	var port: int = 7700 + num
+	is_room_public = public_room
+	var port: int = 7700 + randi_range(1, 99)
 	host_room(port)
 	_save_active_room_entry()
 	return room_code
@@ -284,7 +344,7 @@ func host_room(port: int = DEFAULT_PORT) -> Error:
 	multiplayer.multiplayer_peer = peer
 	is_network_active = true
 	if room_code == "":
-		room_code = "JPL-%02d" % randi_range(10, 99)
+		room_code = _generate_random_room_code()
 	is_room_open = true
 	is_room_host = true
 	if lobby_players.size() > 0:
@@ -297,7 +357,7 @@ func host_room(port: int = DEFAULT_PORT) -> Error:
 func join_room(code: String, player_tag: String = "") -> bool:
 	var clean_code: String = code.strip_edges().to_upper()
 	if clean_code == "":
-		last_join_error = "Lütfen geçerli bir Oda Kodu girin (örn: JPL-42)!"
+		last_join_error = "Lütfen geçerli bir Oda Kodu girin (örn: KZM-47)!"
 		return false
 
 	var rooms: Dictionary = _load_active_rooms()
@@ -344,7 +404,33 @@ func join_room(code: String, player_tag: String = "") -> bool:
 func set_host_color(new_color: Color) -> void:
 	if lobby_players.size() > 0:
 		lobby_players[0]["color"] = new_color
+		for i in range(1, lobby_players.size()):
+			var c: Color = lobby_players[i].get("color", SLOT_COLORS[i % SLOT_COLORS.size()])
+			if c.is_equal_approx(new_color):
+				lobby_players[i]["color"] = _pick_distinct_color(i)
 		_broadcast_lobby_state()
+
+func _pick_distinct_color(ignore_idx: int = -1) -> Color:
+	for candidate in SLOT_COLORS:
+		var used: bool = false
+		for i in range(lobby_players.size()):
+			if i == ignore_idx:
+				continue
+			var c: Color = lobby_players[i].get("color", Color.WHITE)
+			if c.is_equal_approx(candidate):
+				used = true
+				break
+		if not used:
+			return candidate
+	return SLOT_COLORS[lobby_players.size() % SLOT_COLORS.size()]
+
+func get_local_player_color() -> Color:
+	for p in lobby_players:
+		if String(p.get("tag", "")) == PlayerProfile.full_tag:
+			return p.get("color", Color.CORAL)
+	if lobby_players.size() > 0:
+		return lobby_players[0].get("color", Color.CORAL)
+	return Color.CORAL
 
 func leave_room() -> void:
 	if is_room_host and room_code != "":
@@ -388,14 +474,19 @@ func _rpc_register_player(player_tag: String) -> void:
 	if not multiplayer.is_server():
 		return
 	var sender_id: int = multiplayer.get_remote_sender_id()
+	var normalized: String = _normalize_tag(player_tag)
+	for i in range(lobby_players.size()):
+		if String(lobby_players[i].get("tag", "")) == normalized:
+			lobby_players[i]["peer_id"] = sender_id
+			_broadcast_lobby_state()
+			return
 	if lobby_players.size() >= MAX_PLAYERS:
 		return
-	var normalized: String = _normalize_tag(player_tag)
 	var roles: Array[String] = ["Komutan", "Sistem Müh.", "Yük Uzmanı", "Uçuş Müh."]
 	var idx: int = lobby_players.size()
 	lobby_players.append({
 		"tag": normalized,
-		"color": SLOT_COLORS[idx],
+		"color": _pick_distinct_color(),
 		"is_host": false,
 		"role": roles[idx],
 		"peer_id": sender_id
@@ -463,7 +554,7 @@ func add_player_to_lobby(player_tag: String) -> bool:
 	var idx: int = lobby_players.size()
 	lobby_players.append({
 		"tag": normalized,
-		"color": SLOT_COLORS[idx],
+		"color": _pick_distinct_color(),
 		"is_host": false,
 		"role": roles[idx],
 		"peer_id": 0
@@ -854,7 +945,7 @@ func recalculate() -> void:
 	data_gen_mbps = 0.0
 	downlink_mbps = 0.0
 	science_score = _quest_science_delta
-	landing_success_chance = 40 + _quest_landing_delta
+	landing_success_chance = 15 + _quest_landing_delta
 
 	var solar_eff: float = float(current_mission.get("solar_efficiency", 1.0))
 
@@ -880,18 +971,138 @@ func recalculate() -> void:
 		elif d_rate < 0.0:
 			downlink_mbps += abs(d_rate) * _quest_downlink_mult
 
+	var part_prep_bonus: int = mini(installed_parts.size() * 4, 20)
+	var target_gb: float = max(1.0, get_target_download_gb())
+	var data_ratio: float = clampf(downloaded_data_gb / target_gb, 0.0, 1.0)
+	var data_bonus: int = int(round(data_ratio * 20.0))
+	landing_success_chance += part_prep_bonus + data_bonus
+
 	if dsn_locked:
-		landing_success_chance += 15
+		landing_success_chance += 8
 
 	science_score = max(0, science_score)
 	landing_success_chance = clamp(landing_success_chance, 0, 100)
 	EventBus.telemetry_changed.emit()
+
+func sync_dsn_input(new_freq: float) -> void:
+	dsn_freq_value = clampf(new_freq, 0.0, 100.0)
+	if is_network_active:
+		_rpc_sync_dsn_input.rpc(dsn_freq_value)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_sync_dsn_input(new_freq: float) -> void:
+	dsn_freq_value = clampf(new_freq, 0.0, 100.0)
+	EventBus.telemetry_changed.emit()
+
+func sync_dsn_state(station_idx: int, target_center: float, station_timer: float, downloaded_gb: float, ssd_used: float, locked: bool) -> void:
+	dsn_station_idx = station_idx
+	dsn_target_center = target_center
+	dsn_station_timer = station_timer
+	downloaded_data_gb = downloaded_gb
+	ssd_used_gb = ssd_used
+	dsn_locked = locked
+	if is_network_active:
+		_rpc_sync_dsn_state.rpc(station_idx, target_center, station_timer, downloaded_gb, ssd_used, locked)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_sync_dsn_state(station_idx: int, target_center: float, station_timer: float, downloaded_gb: float, ssd_used: float, locked: bool) -> void:
+	dsn_station_idx = station_idx
+	dsn_target_center = target_center
+	dsn_station_timer = station_timer
+	downloaded_data_gb = downloaded_gb
+	ssd_used_gb = ssd_used
+	dsn_locked = locked
+	recalculate()
+
+func start_crisis_vote(quest_id: String) -> void:
+	active_crisis_id = quest_id
+	crisis_votes.clear()
+	last_crisis_vote_result.clear()
+
+func cast_crisis_vote(quest_id: String, option_idx: int) -> void:
+	active_crisis_id = quest_id
+	crisis_votes[PlayerProfile.full_tag] = option_idx
+	if is_network_active:
+		_rpc_cast_crisis_vote.rpc(quest_id, PlayerProfile.full_tag, option_idx)
+	EventBus.telemetry_changed.emit()
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_cast_crisis_vote(quest_id: String, voter_tag: String, option_idx: int) -> void:
+	if active_crisis_id == "" or active_crisis_id == quest_id:
+		active_crisis_id = quest_id
+		crisis_votes[voter_tag] = option_idx
+		EventBus.telemetry_changed.emit()
+
+func resolve_crisis_vote_network(quest_id: String, winner_idx: int, was_tie: bool, is_timeout: bool) -> void:
+	last_crisis_vote_result = {
+		"quest_id": quest_id,
+		"winner_idx": winner_idx,
+		"was_tie": was_tie,
+		"is_timeout": is_timeout
+	}
+	if is_network_active:
+		_rpc_resolve_crisis_vote.rpc(quest_id, winner_idx, was_tie, is_timeout)
+	EventBus.telemetry_changed.emit()
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_resolve_crisis_vote(quest_id: String, winner_idx: int, was_tie: bool, is_timeout: bool) -> void:
+	last_crisis_vote_result = {
+		"quest_id": quest_id,
+		"winner_idx": winner_idx,
+		"was_tie": was_tie,
+		"is_timeout": is_timeout
+	}
+	EventBus.telemetry_changed.emit()
+
+func apply_minigame_bonus(mass_delta: float, power_delta: float, landing_delta: int, science_delta: int, log_text: String) -> void:
+	_quest_mass_delta += mass_delta
+	_quest_power_delta += power_delta
+	_quest_landing_delta += landing_delta
+	_quest_science_delta += science_delta
+	if log_text != "":
+		decision_logs.append(log_text)
+	recalculate()
+	if is_network_active:
+		_rpc_apply_minigame_bonus.rpc(mass_delta, power_delta, landing_delta, science_delta, log_text)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_apply_minigame_bonus(mass_delta: float, power_delta: float, landing_delta: int, science_delta: int, log_text: String) -> void:
+	_quest_mass_delta += mass_delta
+	_quest_power_delta += power_delta
+	_quest_landing_delta += landing_delta
+	_quest_science_delta += science_delta
+	if log_text != "":
+		decision_logs.append(log_text)
+	recalculate()
 
 func is_random_quest_budget_valid(opt: Dictionary) -> bool:
 	var b_delta: float = float(opt.get("budget_delta", 0.0))
 	if b_delta < 0.0 and budget_m + b_delta < 0.0:
 		return false
 	return true
+
+func get_effective_mass_kg() -> float:
+	var site_penalty: Dictionary = MissionValidator.get_launch_site_penalty(current_mission, selected_launch_site)
+	return total_mass_kg + float(site_penalty.get("mass_penalty_kg", 0.0))
+
+func get_effective_mass_limit_kg() -> float:
+	var rocket_cap: float = float(selected_rocket.get("max_mass_kg", 999999.0))
+	var mission_cap: float = float(current_mission.get("max_mass_kg", 999999.0))
+	return min(rocket_cap, mission_cap)
+
+func get_target_download_gb() -> float:
+	var mid: String = String(current_mission.get("id", ""))
+	match mid:
+		"leo_climate_aqua":
+			return 120.0
+		"lunar_pole_lro":
+			return 180.0
+		"mars_perseverance":
+			return 240.0
+		"europa_juno":
+			return 300.0
+		_:
+			return 150.0
 
 func mark_briefing_completed() -> void:
 	briefing_completed = true

@@ -5,14 +5,49 @@ extends PanelContainer
 @onready var parts_grid: GridContainer = %PartsGrid
 @onready var status_label: Label = %MarketStatusLabel
 
+const CATEGORIES: Array[Dictionary] = [
+	{ "id": "payload", "label": "BİLİM CİHAZLARI" },
+	{ "id": "power", "label": "GÜÇ" },
+	{ "id": "comms", "label": "İLETİŞİM" },
+	{ "id": "avionics", "label": "AVİYONİK" },
+	{ "id": "survival", "label": "KORUMA" }
+]
+
+var _selected_category: String = "payload"
+var _category_bar: HBoxContainer = null
+var _category_buttons: Dictionary = {}
 var _purchased_panel: PanelContainer = null
 var _purchased_list_label: Label = null
 
 func _ready() -> void:
 	visible = false
+	_ensure_category_bar_ui()
 	_ensure_purchased_list_ui()
 	EventBus.terminal_opened.connect(_on_terminal_opened)
 	EventBus.telemetry_changed.connect(_refresh_all)
+
+func _ensure_category_bar_ui() -> void:
+	var vbox: Node = get_node_or_null("VBox")
+	if vbox == null or _category_bar != null:
+		return
+
+	_category_bar = HBoxContainer.new()
+	_category_bar.add_theme_constant_override("separation", 4)
+
+	for cat in CATEGORIES:
+		var cid: String = String(cat["id"])
+		var btn: Button = Button.new()
+		btn.text = String(cat["label"])
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.add_theme_font_size_override("font_size", 9)
+		btn.pressed.connect(_on_category_selected.bind(cid))
+		_category_bar.add_child(btn)
+		_category_buttons[cid] = btn
+
+	var scroll_node: Node = get_node_or_null("VBox/Scroll")
+	var insert_idx: int = scroll_node.get_index() if scroll_node != null else 2
+	vbox.add_child(_category_bar)
+	vbox.move_child(_category_bar, insert_idx)
 
 func _ensure_purchased_list_ui() -> void:
 	var vbox: Node = get_node_or_null("VBox")
@@ -51,27 +86,57 @@ func _on_terminal_opened(terminal_name: String) -> void:
 func open_market() -> void:
 	visible = true
 	_populate_rockets()
+	_refresh_category_buttons()
 	_populate_parts()
 	_refresh_header()
 	_refresh_purchased_list()
 	status_label.add_theme_color_override("font_color", Color(0.85, 0.9, 0.95))
-	status_label.text = "Parça seçin; satın alınanlar kargo bandına düşer."
+	status_label.text = "Kategori seçip parça alın; satın alınanlar kargo bandına düşer."
+
+func _on_category_selected(cat_id: String) -> void:
+	_selected_category = cat_id
+	_refresh_category_buttons()
+	_populate_parts()
+
+func _refresh_category_buttons() -> void:
+	var all_parts: Array = GameState.get_available_parts_for_mission()
+	var counts: Dictionary = {}
+	for p in all_parts:
+		var t: String = String(p.get("type", "payload"))
+		counts[t] = int(counts.get(t, 0)) + 1
+
+	for cat in CATEGORIES:
+		var cid: String = String(cat["id"])
+		var btn: Button = _category_buttons.get(cid, null)
+		if btn == null:
+			continue
+		var c: int = int(counts.get(cid, 0))
+		btn.text = "%s (%d)" % [String(cat["label"]), c]
+		var is_active: bool = (cid == _selected_category)
+		btn.add_theme_color_override(
+			"font_color",
+			Color(1.0, 0.85, 0.35) if is_active else Color(0.8, 0.88, 0.95)
+		)
 
 func _refresh_all() -> void:
 	if not visible:
 		return
 	_refresh_header()
 	_refresh_purchased_list()
+	_refresh_category_buttons()
 	_populate_parts()
 
 func _refresh_header() -> void:
 	if not visible:
 		return
-	budget_label.text = "BÜTÇE: $%.0fM | ROKET LİMİTİ: %.0f kg" % [
+	var eff_mass: float = GameState.get_effective_mass_kg()
+	var eff_limit: float = GameState.get_effective_mass_limit_kg()
+	budget_label.text = "BÜTÇE: $%.0fM | KÜTLE: %.0f/%.0f kg" % [
 		GameState.budget_m,
-		float(GameState.selected_rocket.get("max_mass_kg", 0.0))
+		eff_mass,
+		eff_limit
 	]
-	if GameState.budget_m <= 0.0:
+	if GameState.budget_m <= 0.0 or eff_mass > eff_limit:
 		budget_label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
 	else:
 		budget_label.add_theme_color_override("font_color", Color(0.4, 0.95, 0.55))
@@ -117,15 +182,22 @@ func _populate_parts() -> void:
 
 	var parts: Array = GameState.get_available_parts_for_mission()
 	for p in parts:
+		var p_type: String = String(p.get("type", "payload"))
+		if _selected_category != "all" and p_type != _selected_category:
+			continue
+
 		var pid: String = String(p.get("id", ""))
 		var bought_count: int = int(counts_by_id.get(pid, 0))
 		var installed: bool = GameState.is_part_installed(pid)
 
 		var card: PanelContainer = PanelContainer.new()
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
 		var vbox: VBoxContainer = VBoxContainer.new()
-		vbox.add_theme_constant_override("separation", 2)
+		vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		vbox.add_theme_constant_override("separation", 3)
 
 		var title: Label = Label.new()
 		var badge_txt: String = ""
@@ -149,18 +221,22 @@ func _populate_parts() -> void:
 			pwr_str,
 			int(p.get("science", 0))
 		]
+		stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		stats.add_theme_font_size_override("font_size", 9)
 		vbox.add_child(stats)
 
 		var note: Label = Label.new()
 		note.text = String(p.get("notes", ""))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		note.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		note.add_theme_font_size_override("font_size", 8)
 		note.add_theme_color_override("font_color", Color(0.75, 0.8, 0.88))
 		vbox.add_child(note)
 
 		var btn: Button = Button.new()
 		btn.text = "SATIN AL ($%dM)" % int(p.get("cost_m", 0))
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.custom_minimum_size = Vector2(0, 24)
 		btn.pressed.connect(_on_buy_part_pressed.bind(p))
 		vbox.add_child(btn)
 

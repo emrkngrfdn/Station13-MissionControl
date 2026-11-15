@@ -27,10 +27,9 @@ func _on_lobby_updated(_players: Array) -> void:
 	_sync_color_row()
 
 func _sync_color_row() -> void:
-	if GameState.lobby_players.size() > 0:
-		var c: Color = GameState.lobby_players[0].get("color", Color.CORAL)
-		_row_idx = _color_to_row(c)
-		_update_sprite_frame(0)
+	var c: Color = GameState.get_local_player_color()
+	_row_idx = _color_to_row(c)
+	_update_sprite_frame(0)
 
 func _color_to_row(c: Color) -> int:
 	if c.b > 0.7 and c.r < 0.5:

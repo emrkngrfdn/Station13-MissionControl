@@ -9,6 +9,8 @@ enum TerminalType { BRIEFING, MARKET, ASSEMBLY, POWER_LAB, DSN_COMMS, LAUNCH }
 func _ready() -> void:
 	$ConsoleVisual.visible = show_placeholder_visual
 	$PromptLabel.text = prompt_text
+	if terminal_type == TerminalType.DSN_COMMS:
+		position.y += 28.0
 	$PromptLabel.visible = false
 	body_entered.connect(_on_body_entered)
 	body_exited.connect(_on_body_exited)

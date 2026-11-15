@@ -19,6 +19,25 @@ var _timer_bar: ProgressBar = null
 var _close_btn: Button = null
 var _ack_btn: Button = null
 var _fail_mission_btn: Button = null
+var _option_buttons: Array[Button] = []
+
+var _orbit_game_active: bool = false
+var _orbit_alignment_done: bool = false
+var _orbit_cursor_deg: float = 20.0
+var _orbit_dir: float = 1.0
+var _orbit_target_deg: float = 98.0
+var _orbit_status_lbl: Label = null
+var _orbit_needle: ColorRect = null
+var _orbit_lock_btn: Button = null
+
+var _wiring_done: bool = false
+var _dragging_wire_id: int = -1
+var _drag_mouse_pos: Vector2 = Vector2.ZERO
+var _matched_wires: Array[int] = []
+var _wire_defs: Array[Dictionary] = []
+var _right_wire_order: Array[int] = []
+var _wire_canvas: Control = null
+var _pending_result_msg: String = ""
 
 func _ready() -> void:
 	visible = false
@@ -28,6 +47,7 @@ func _ready() -> void:
 	EventBus.terminal_opened.connect(_on_terminal_opened)
 	EventBus.side_quest_triggered.connect(_on_random_crisis_triggered)
 	EventBus.mission_started.connect(_reset_quests)
+	EventBus.telemetry_changed.connect(_on_vote_telemetry_updated)
 
 func _ensure_extra_ui() -> void:
 	var vbox: Node = get_node_or_null("VBox")
@@ -73,6 +93,23 @@ func _ensure_extra_ui() -> void:
 		vbox.add_child(_fail_mission_btn)
 
 func _process(delta: float) -> void:
+	if visible and _orbit_game_active:
+		_orbit_cursor_deg += _orbit_dir * 115.0 * delta
+		if _orbit_cursor_deg >= 180.0:
+			_orbit_cursor_deg = 180.0
+			_orbit_dir = -1.0
+		elif _orbit_cursor_deg <= 0.0:
+			_orbit_cursor_deg = 0.0
+			_orbit_dir = 1.0
+		if _orbit_needle != null:
+			var ratio: float = clampf(_orbit_cursor_deg / 180.0, 0.0, 1.0)
+			_orbit_needle.anchor_left = ratio
+			_orbit_needle.anchor_right = ratio
+		if _orbit_status_lbl != null:
+			_orbit_status_lbl.text = "YÖRÜNGE AÇISI: %03.0f° | HEDEF PENCERE: %03.0f° (±16° Yeşil / ±5° Tam İsabet)" % [
+				_orbit_cursor_deg, _orbit_target_deg
+			]
+
 	if not visible or _is_resolving or not _has_timer:
 		return
 
@@ -96,6 +133,10 @@ func _reset_quests() -> void:
 	_resolved_quest_ids.clear()
 	_is_resolving = false
 	_has_timer = false
+	_orbit_game_active = false
+	_orbit_alignment_done = false
+	_wiring_done = false
+	_matched_wires.clear()
 
 func _on_random_crisis_triggered(quest_data: Dictionary) -> void:
 	if visible:
@@ -127,6 +168,9 @@ func _on_terminal_opened(terminal_name: String) -> void:
 				if not _resolved_quest_ids.has(q_id) and not GameState.resolved_quest_ids.has(q_id):
 					open_quest(q)
 					return
+		if not _wiring_done:
+			visible = true
+			_build_power_wiring_ui(_pending_result_msg if _pending_result_msg != "" else "Güç kaynağı seçildi.")
 
 func _open_briefing_summary() -> void:
 	_current_quest = {}
@@ -153,8 +197,11 @@ func _open_briefing_summary() -> void:
 	]
 	for child in options_box.get_children():
 		child.queue_free()
+	if not _orbit_alignment_done:
+		_build_orbit_alignment_ui("Görev hedefleri onaylandı.")
+		return
 	feedback_label.add_theme_color_override("font_color", Color(0.55, 0.9, 1.0))
-	feedback_label.text = "Brifing tamamlandı! Şimdi Tedarik Mağazası ve Güç Lab odalarına geçebilirsin."
+	feedback_label.text = "Brifing ve yörünge hizalaması tamamlandı! Tedarik Mağazası ve Güç Lab odalarına geçebilirsin."
 
 func open_quest(quest_data: Dictionary) -> void:
 	_current_quest = quest_data
@@ -191,9 +238,16 @@ func open_quest(quest_data: Dictionary) -> void:
 
 	for child in options_box.get_children():
 		child.queue_free()
+	_option_buttons.clear()
 
+	var q_id: String = String(quest_data.get("id", ""))
+	if _is_multiplayer_vote_active():
+		GameState.start_crisis_vote(q_id)
+
+	var opts: Array = quest_data.get("options", [])
 	var affordable_count: int = 0
-	for opt in quest_data.get("options", []):
+	for idx in range(opts.size()):
+		var opt: Dictionary = opts[idx]
 		var b_delta: float = float(opt.get("budget_delta", 0.0))
 		var can_afford: bool = b_delta >= 0.0 or (GameState.budget_m + b_delta >= 0.0)
 		if can_afford:
@@ -203,8 +257,12 @@ func open_quest(quest_data: Dictionary) -> void:
 		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		if not can_afford:
 			btn.add_theme_color_override("font_color", Color(1.0, 0.45, 0.45))
-		btn.pressed.connect(_on_option_chosen.bind(opt))
+		btn.pressed.connect(_on_option_chosen.bind(opt, idx))
 		options_box.add_child(btn)
+		_option_buttons.append(btn)
+
+	if _is_multiplayer_vote_active():
+		_refresh_vote_buttons()
 
 	if affordable_count == 0 and not is_crisis:
 		feedback_label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
@@ -213,8 +271,88 @@ func open_quest(quest_data: Dictionary) -> void:
 		if _fail_mission_btn != null:
 			_fail_mission_btn.visible = true
 
+func _is_multiplayer_vote_active() -> bool:
+	return bool(_current_quest.get("is_random_crisis", false)) and (not GameState.is_solo or GameState.lobby_players.size() > 1)
+
+func _on_vote_telemetry_updated() -> void:
+	if not visible or _is_resolving or not _is_multiplayer_vote_active():
+		return
+	var q_id: String = String(_current_quest.get("id", ""))
+	var res: Dictionary = GameState.last_crisis_vote_result
+	if not res.is_empty() and String(res.get("quest_id", "")) == q_id:
+		var w_idx: int = int(res.get("winner_idx", 0))
+		var was_tie: bool = bool(res.get("was_tie", false))
+		var is_t: bool = bool(res.get("is_timeout", false))
+		var opts: Array = _current_quest.get("options", [])
+		if w_idx >= 0 and w_idx < opts.size():
+			_resolve_with_option(opts[w_idx], is_t, was_tie)
+			return
+	_refresh_vote_buttons()
+
+func _refresh_vote_buttons() -> void:
+	var opts: Array = _current_quest.get("options", [])
+	var counts: Dictionary = {}
+	for voter in GameState.crisis_votes.keys():
+		var idx_v: int = int(GameState.crisis_votes[voter])
+		counts[idx_v] = int(counts.get(idx_v, 0)) + 1
+	var my_vote: int = int(GameState.crisis_votes.get(PlayerProfile.full_tag, -1))
+
+	for i in range(min(_option_buttons.size(), opts.size())):
+		var opt: Dictionary = opts[i]
+		var b_delta: float = float(opt.get("budget_delta", 0.0))
+		var can_afford: bool = b_delta >= 0.0 or (GameState.budget_m + b_delta >= 0.0)
+		var base_txt: String = String(opt.get("label", "Seçenek")) + ("" if can_afford else " [YETERSİZ BÜTÇE]")
+		var c: int = int(counts.get(i, 0))
+		var vote_tag: String = " | [%d Oy]" % c
+		if i == my_vote:
+			vote_tag += " [SENİN OYUN]"
+		_option_buttons[i].text = base_txt + vote_tag
+
+	var total_players: int = max(1, GameState.lobby_players.size())
+	feedback_label.add_theme_color_override("font_color", Color(0.55, 0.88, 1.0))
+	feedback_label.text = "OYLAMA: %d / %d oyuncu oy verdi (Eşit oy olursa rastgele seçilir)." % [GameState.crisis_votes.size(), total_players]
+
+func _finalize_crisis_vote(is_timeout: bool) -> void:
+	if _is_resolving:
+		return
+	var q_id: String = String(_current_quest.get("id", ""))
+	var opts: Array = _current_quest.get("options", [])
+	if opts.is_empty():
+		return
+
+	if GameState.crisis_votes.is_empty() and is_timeout and String(_current_quest.get("timeout_mode", "random")) == "fail_penalty" and _current_quest.has("timeout_outcome"):
+		var fail_opt: Dictionary = _current_quest.get("timeout_outcome", {})
+		_resolve_with_option(fail_opt, true)
+		return
+
+	var counts: Array[int] = []
+	for _i in range(opts.size()):
+		counts.append(0)
+	for voter in GameState.crisis_votes.keys():
+		var idx_v: int = int(GameState.crisis_votes[voter])
+		if idx_v >= 0 and idx_v < counts.size():
+			counts[idx_v] += 1
+
+	var max_votes: int = -1
+	for c in counts:
+		if c > max_votes:
+			max_votes = c
+
+	var tied_indices: Array[int] = []
+	for i in range(counts.size()):
+		if counts[i] == max_votes:
+			tied_indices.append(i)
+
+	var was_tie: bool = tied_indices.size() > 1
+	var winner_idx: int = tied_indices[randi() % tied_indices.size()]
+	GameState.resolve_crisis_vote_network(q_id, winner_idx, was_tie, is_timeout)
+
 func _on_crisis_timeout() -> void:
 	if _is_resolving:
+		return
+	if _is_multiplayer_vote_active():
+		if not GameState.is_network_active or GameState.is_room_host:
+			_finalize_crisis_vote(true)
 		return
 	var mode: String = String(_current_quest.get("timeout_mode", "random"))
 	if mode == "fail_penalty" and _current_quest.has("timeout_outcome"):
@@ -227,7 +365,7 @@ func _on_crisis_timeout() -> void:
 		var random_opt: Dictionary = options[randi() % options.size()].duplicate(true)
 		_resolve_with_option(random_opt, true, true)
 
-func _on_option_chosen(opt: Dictionary) -> void:
+func _on_option_chosen(opt: Dictionary, opt_idx: int = 0) -> void:
 	if not GameState.is_random_quest_budget_valid(opt):
 		var req_cost: float = abs(float(opt.get("budget_delta", 0.0)))
 		var err_msg: String = "HATA — BÜTÇE YETERSİZ! Bu seçenek için $%.0fM gerekiyor (Mevcut bütçen: $%.0fM)." % [
@@ -236,6 +374,14 @@ func _on_option_chosen(opt: Dictionary) -> void:
 		feedback_label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
 		feedback_label.text = err_msg
 		EventBus.status_message.emit(err_msg, true)
+		return
+	if _is_multiplayer_vote_active():
+		var q_id: String = String(_current_quest.get("id", ""))
+		GameState.cast_crisis_vote(q_id, opt_idx)
+		_refresh_vote_buttons()
+		var total_players: int = max(1, GameState.lobby_players.size())
+		if GameState.crisis_votes.size() >= total_players and (not GameState.is_network_active or GameState.is_room_host):
+			_finalize_crisis_vote(false)
 		return
 	_resolve_with_option(opt, false, false)
 
@@ -267,6 +413,15 @@ func _resolve_with_option(opt: Dictionary, is_timeout: bool, was_random: bool = 
 	if is_timeout and was_random:
 		result_msg = "SÜRE DOLDU! Rastgele seçim yapıldı → " + result_msg
 
+	var is_crisis_q: bool = bool(_current_quest.get("is_random_crisis", false))
+	var room_name: String = String(_current_quest.get("room", ""))
+	if not is_crisis_q and room_name != "POWER_LAB" and not _orbit_alignment_done:
+		_build_orbit_alignment_ui(result_msg)
+		return
+	if not is_crisis_q and room_name == "POWER_LAB" and not _wiring_done:
+		_build_power_wiring_ui(result_msg)
+		return
+
 	var is_bad: bool = is_timeout or result_msg.contains("HASAR") or result_msg.contains("BAŞARISIZ") or result_msg.contains("ÇÖKTÜ") or result_msg.contains("SAPMA") or result_msg.contains("TÜKENDİ") or result_msg.contains("TAKLA") or result_msg.contains("SÜRE DOLDU")
 	feedback_label.add_theme_color_override(
 		"font_color",
@@ -282,7 +437,278 @@ func _resolve_with_option(opt: Dictionary, is_timeout: bool, was_random: bool = 
 	if _ack_btn != null:
 		_ack_btn.visible = true
 
+func _get_mission_orbit_target_deg() -> float:
+	var mid: String = String(GameState.current_mission.get("id", ""))
+	match mid:
+		"leo_climate_aqua":
+			return 98.0
+		"lunar_pole_lro":
+			return 52.0
+		"mars_perseverance":
+			return 126.0
+		"europa_juno":
+			return 142.0
+		_:
+			return 90.0
+
+func _build_orbit_alignment_ui(prev_result: String) -> void:
+	_pending_result_msg = prev_result
+	_orbit_target_deg = _get_mission_orbit_target_deg()
+	_orbit_cursor_deg = 15.0
+	_orbit_dir = 1.0
+	_orbit_game_active = true
+	if _timer_box != null:
+		_timer_box.visible = false
+	if _close_btn != null:
+		_close_btn.visible = true
+	if _ack_btn != null:
+		_ack_btn.visible = false
+
+	title_label.text = "BRİFİNG MİNİ GÖREV: FIRLATMA PENCERESİ & YÖRÜNGE HİZALAMA"
+	title_label.add_theme_color_override("font_color", Color(0.4, 0.9, 1.0))
+	desc_label.text = "KARAR: %s\nŞimdi roket fırlatma vektörünü hedef yörünge penceresine (Yeşil/Altın bölge) hizalayıp KİLİTLE! Tam isabet ek yakıt/kütle tasarrufu sağlar." % prev_result
+
+	for child in options_box.get_children():
+		child.queue_free()
+
+	_orbit_status_lbl = Label.new()
+	_orbit_status_lbl.add_theme_font_size_override("font_size", 10)
+	_orbit_status_lbl.add_theme_color_override("font_color", Color(0.85, 0.95, 1.0))
+	options_box.add_child(_orbit_status_lbl)
+
+	var radar_bar: Control = Control.new()
+	radar_bar.custom_minimum_size = Vector2(0, 18)
+	radar_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var bg: ColorRect = ColorRect.new()
+	bg.color = Color(0.07, 0.11, 0.18, 1.0)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	radar_bar.add_child(bg)
+
+	var green_zone: ColorRect = ColorRect.new()
+	green_zone.color = Color(0.2, 0.78, 0.42, 0.85)
+	green_zone.anchor_top = 0.0
+	green_zone.anchor_bottom = 1.0
+	green_zone.anchor_left = clampf((_orbit_target_deg - 16.0) / 180.0, 0.0, 1.0)
+	green_zone.anchor_right = clampf((_orbit_target_deg + 16.0) / 180.0, 0.0, 1.0)
+	radar_bar.add_child(green_zone)
+
+	var gold_zone: ColorRect = ColorRect.new()
+	gold_zone.color = Color(1.0, 0.88, 0.25, 0.95)
+	gold_zone.anchor_top = 0.0
+	gold_zone.anchor_bottom = 1.0
+	gold_zone.anchor_left = clampf((_orbit_target_deg - 5.0) / 180.0, 0.0, 1.0)
+	gold_zone.anchor_right = clampf((_orbit_target_deg + 5.0) / 180.0, 0.0, 1.0)
+	radar_bar.add_child(gold_zone)
+
+	_orbit_needle = ColorRect.new()
+	_orbit_needle.color = Color(1.0, 1.0, 1.0, 1.0)
+	_orbit_needle.anchor_top = 0.0
+	_orbit_needle.anchor_bottom = 1.0
+	_orbit_needle.offset_left = -2.0
+	_orbit_needle.offset_right = 2.0
+	radar_bar.add_child(_orbit_needle)
+	options_box.add_child(radar_bar)
+
+	_orbit_lock_btn = Button.new()
+	_orbit_lock_btn.text = "FIRLATMA PENCERESİNİ KİLİTLE!"
+	_orbit_lock_btn.custom_minimum_size = Vector2(0, 26)
+	_orbit_lock_btn.pressed.connect(_on_orbit_lock_pressed)
+	options_box.add_child(_orbit_lock_btn)
+
+	feedback_label.add_theme_color_override("font_color", Color(0.65, 0.88, 1.0))
+	feedback_label.text = "İbre yeşil veya altın bölgeden geçerken KİLİTLE butonuna bas!"
+
+func _on_orbit_lock_pressed() -> void:
+	if not _orbit_game_active:
+		_orbit_game_active = true
+		if _orbit_lock_btn != null:
+			_orbit_lock_btn.text = "FIRLATMA PENCERESİNİ KİLİTLE!"
+		feedback_label.add_theme_color_override("font_color", Color(0.65, 0.88, 1.0))
+		feedback_label.text = "İbre yeşil veya altın bölgeden geçerken KİLİTLE butonuna bas!"
+		return
+
+	_orbit_game_active = false
+	var diff: float = abs(_orbit_cursor_deg - _orbit_target_deg)
+	if diff <= 5.5:
+		_orbit_alignment_done = true
+		if _orbit_lock_btn != null:
+			_orbit_lock_btn.disabled = true
+		var bonus_note: String = "Yörünge Penceresi TAM İSABET (%.0f° / Hedef %.0f°): -15 kg yakıt tasarrufu, +%%8 iniş, +40 bilim!" % [_orbit_cursor_deg, _orbit_target_deg]
+		GameState.apply_minigame_bonus(-15.0, 0.0, 8, 40, bonus_note)
+		feedback_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.35))
+		feedback_label.text = "MÜKEMMEL HİZALAMA! " + bonus_note
+		if _ack_btn != null:
+			_ack_btn.visible = true
+	elif diff <= 16.5:
+		_orbit_alignment_done = true
+		if _orbit_lock_btn != null:
+			_orbit_lock_btn.disabled = true
+		var ok_note: String = "Yörünge Penceresi Kilitlendi (%.0f° / Hedef %.0f°): -8 kg yakıt tasarrufu, +%%4 iniş, +20 bilim!" % [_orbit_cursor_deg, _orbit_target_deg]
+		GameState.apply_minigame_bonus(-8.0, 0.0, 4, 20, ok_note)
+		feedback_label.add_theme_color_override("font_color", Color(0.4, 0.95, 0.55))
+		feedback_label.text = "BAŞARILI! " + ok_note
+		if _ack_btn != null:
+			_ack_btn.visible = true
+	else:
+		if _orbit_lock_btn != null:
+			_orbit_lock_btn.text = "PENCERE KAÇTI (%.0f°) — TEKRAR HİZALA" % _orbit_cursor_deg
+		feedback_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.4))
+		feedback_label.text = "Hedef pencere dışına kilitlendi (%.0f°). Tekrar denemek için butona bas!" % _orbit_cursor_deg
+
+func _build_power_wiring_ui(prev_result: String) -> void:
+	_pending_result_msg = prev_result
+	_dragging_wire_id = -1
+	_matched_wires.clear()
+	if _timer_box != null:
+		_timer_box.visible = false
+	if _close_btn != null:
+		_close_btn.visible = true
+	if _ack_btn != null:
+		_ack_btn.visible = false
+
+	title_label.text = "GÜÇ LAB MİNİ GÖREV: INTERAKTİF KABLO & SİGORTA BAĞLANTISI"
+	title_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35))
+	desc_label.text = "KARAR: %s\nSoldaki güç çıkış soketlerinden fareyle BASILI TUTUP ÇEKEREK sağdaki aynı renkli roket barası soketine kablo bağla (+15W Güç & +%%5 İniş)!" % prev_result
+
+	for child in options_box.get_children():
+		child.queue_free()
+
+	_wire_defs = [
+		{ "id": 0, "name": "KIRMIZI (+28V Ana)", "color": Color(0.98, 0.32, 0.32) },
+		{ "id": 1, "name": "MAVİ (Termal Hat)", "color": Color(0.28, 0.72, 1.0) },
+		{ "id": 2, "name": "SARI (Telemetri)", "color": Color(0.98, 0.84, 0.25) },
+		{ "id": 3, "name": "YEŞİL (Sigorta)", "color": Color(0.32, 0.92, 0.5) }
+	]
+	_right_wire_order = [2, 0, 3, 1]
+	if randi() % 2 == 0:
+		_right_wire_order = [1, 3, 0, 2]
+
+	_wire_canvas = Control.new()
+	_wire_canvas.custom_minimum_size = Vector2(360, 118)
+	_wire_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_wire_canvas.mouse_filter = Control.MOUSE_FILTER_STOP
+	_wire_canvas.draw.connect(_on_wire_canvas_draw)
+	_wire_canvas.gui_input.connect(_on_wire_canvas_gui_input)
+	options_box.add_child(_wire_canvas)
+
+	feedback_label.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0))
+	feedback_label.text = "Soldaki renkli soketten fareyle basılı tutup sağdaki aynı renkli sokete kablo çek (0/4 bağlandı)."
+
+func _get_wire_row_y(row_idx: int) -> float:
+	return 8.0 + float(row_idx) * 27.0
+
+func _on_wire_canvas_draw() -> void:
+	if _wire_canvas == null:
+		return
+	var w: float = max(320.0, _wire_canvas.size.x)
+	var h: float = max(118.0, _wire_canvas.size.y)
+	_wire_canvas.draw_rect(Rect2(0, 0, w, h), Color(0.05, 0.08, 0.14, 0.95), true)
+	_wire_canvas.draw_rect(Rect2(0, 0, w, h), Color(0.25, 0.42, 0.62, 0.9), false, 1.5)
+
+	var left_w: float = 128.0
+	var right_x: float = w - 128.0
+	var font: Font = ThemeDB.fallback_font
+
+	for row_i in range(4):
+		var wy: float = _get_wire_row_y(row_i)
+		var l_info: Dictionary = _wire_defs[row_i]
+		var l_col: Color = l_info["color"]
+		var l_done: bool = _matched_wires.has(row_i)
+		var l_bg: Color = Color(l_col.r * 0.35, l_col.g * 0.35, l_col.b * 0.35, 0.95) if l_done else Color(0.1, 0.14, 0.22, 0.95)
+		_wire_canvas.draw_rect(Rect2(6, wy, left_w, 21), l_bg, true)
+		_wire_canvas.draw_rect(Rect2(6, wy, left_w, 21), l_col, false, 2.0)
+		_wire_canvas.draw_circle(Vector2(6.0 + left_w, wy + 10.5), 5.5, l_col)
+		if font != null:
+			_wire_canvas.draw_string(font, Vector2(12, wy + 15), String(l_info["name"]), HORIZONTAL_ALIGNMENT_LEFT, left_w - 10.0, 9, Color.WHITE)
+
+		var r_wid: int = _right_wire_order[row_i]
+		var r_info: Dictionary = _wire_defs[r_wid]
+		var r_col: Color = r_info["color"]
+		var r_done: bool = _matched_wires.has(r_wid)
+		var r_bg: Color = Color(r_col.r * 0.35, r_col.g * 0.35, r_col.b * 0.35, 0.95) if r_done else Color(0.1, 0.14, 0.22, 0.95)
+		_wire_canvas.draw_rect(Rect2(right_x, wy, 122.0, 21), r_bg, true)
+		_wire_canvas.draw_rect(Rect2(right_x, wy, 122.0, 21), r_col, false, 2.0)
+		_wire_canvas.draw_circle(Vector2(right_x, wy + 10.5), 5.5, r_col)
+		if font != null:
+			_wire_canvas.draw_string(font, Vector2(right_x + 8.0, wy + 15), String(r_info["name"]), HORIZONTAL_ALIGNMENT_LEFT, 112.0, 9, Color.WHITE)
+
+	# Bağlanmış kabloları çiz
+	for wid in _matched_wires:
+		var start_p: Vector2 = Vector2(6.0 + left_w, _get_wire_row_y(wid) + 10.5)
+		var r_row: int = _right_wire_order.find(wid)
+		if r_row != -1:
+			var end_p: Vector2 = Vector2(right_x, _get_wire_row_y(r_row) + 10.5)
+			var w_col: Color = _wire_defs[wid]["color"]
+			_wire_canvas.draw_line(start_p, end_p, Color(0, 0, 0, 0.6), 7.0)
+			_wire_canvas.draw_line(start_p, end_p, w_col, 4.5)
+			_wire_canvas.draw_circle(start_p, 6.0, Color.WHITE)
+			_wire_canvas.draw_circle(end_p, 6.0, Color.WHITE)
+
+	# Çekilmekte olan aktif kabloyu çiz
+	if _dragging_wire_id != -1:
+		var drag_start: Vector2 = Vector2(6.0 + left_w, _get_wire_row_y(_dragging_wire_id) + 10.5)
+		var d_col: Color = _wire_defs[_dragging_wire_id]["color"]
+		_wire_canvas.draw_line(drag_start, _drag_mouse_pos, Color(0, 0, 0, 0.65), 7.0)
+		_wire_canvas.draw_line(drag_start, _drag_mouse_pos, d_col, 4.5)
+		_wire_canvas.draw_circle(_drag_mouse_pos, 6.5, d_col)
+		_wire_canvas.draw_circle(_drag_mouse_pos, 3.0, Color.WHITE)
+
+func _get_row_at_y(pos_y: float) -> int:
+	for i in range(4):
+		var wy: float = _get_wire_row_y(i)
+		if pos_y >= wy - 3.0 and pos_y <= wy + 24.0:
+			return i
+	return -1
+
+func _on_wire_canvas_gui_input(event: InputEvent) -> void:
+	if _wiring_done or _wire_canvas == null:
+		return
+	var w: float = max(320.0, _wire_canvas.size.x)
+	if event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			if mb.pressed:
+				var row_i: int = _get_row_at_y(mb.position.y)
+				if row_i != -1 and mb.position.x <= 155.0 and not _matched_wires.has(row_i):
+					_dragging_wire_id = row_i
+					_drag_mouse_pos = mb.position
+					_wire_canvas.queue_redraw()
+			else:
+				if _dragging_wire_id != -1:
+					var drop_row: int = _get_row_at_y(mb.position.y)
+					if drop_row != -1 and mb.position.x >= w - 155.0:
+						var target_wid: int = _right_wire_order[drop_row]
+						if target_wid == _dragging_wire_id and not _matched_wires.has(target_wid):
+							_matched_wires.append(target_wid)
+							_dragging_wire_id = -1
+							_wire_canvas.queue_redraw()
+							if _matched_wires.size() >= 4:
+								_wiring_done = true
+								var wire_note: String = "Güç Lab sigorta ve bara kabloları eksiksiz bağlandı (+15 W güç verimi, +%5 iniş başarısı)!"
+								GameState.apply_minigame_bonus(0.0, 15.0, 5, 0, wire_note)
+								feedback_label.add_theme_color_override("font_color", Color(0.4, 0.95, 0.55))
+								feedback_label.text = "TÜM KABLOLAR BAĞLANDI (4/4)! " + wire_note
+								if _ack_btn != null:
+									_ack_btn.visible = true
+							else:
+								feedback_label.add_theme_color_override("font_color", Color(0.45, 0.95, 0.65))
+								feedback_label.text = "Kablo bağlandı (%d/4)! Diğer kabloları da çekip bağla." % _matched_wires.size()
+							return
+						elif target_wid != _dragging_wire_id:
+							feedback_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.35))
+							feedback_label.text = "KISA DEVRE! Aynı renkteki bara soketine kablo çekmelisin."
+					_dragging_wire_id = -1
+					_wire_canvas.queue_redraw()
+	elif event is InputEventMouseMotion:
+		if _dragging_wire_id != -1:
+			var mm: InputEventMouseMotion = event as InputEventMouseMotion
+			_drag_mouse_pos = mm.position
+			_wire_canvas.queue_redraw()
+
 func _on_close_pressed() -> void:
+	_orbit_game_active = false
+	_dragging_wire_id = -1
 	_is_resolving = false
 	_has_timer = false
 	if _ack_btn != null:

@@ -189,9 +189,9 @@ static func evaluate_mission_outcome(
 				cnt, String(buy_names[pid])
 			])
 
-	var success: bool = errors.is_empty() and landing_success_chance >= 50
-	if errors.is_empty() and landing_success_chance < 50:
-		errors.append("İniş/operasyon başarı oranı yetersiz kaldı (%%%d)." % landing_success_chance)
+	var success: bool = errors.is_empty() and landing_success_chance >= 60
+	if errors.is_empty() and landing_success_chance < 60:
+		errors.append("İniş/operasyon başarı oranı yetersiz kaldı (%%%d — en az %%60 gerekli)." % landing_success_chance)
 
 	var final_score: int = 0
 	if success:

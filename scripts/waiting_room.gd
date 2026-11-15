@@ -27,8 +27,11 @@ const SUIT_COLORS: Array[Color] = [
 @onready var crew_dummies: Node2D = $CrewDummies
 @onready var player: CharacterBody2D = $Player
 
+var _visibility_toggle_btn: Button = null
+
 func _ready() -> void:
 	settings_panel.visible = false
+	_ensure_visibility_setting_ui()
 	_populate_selectors()
 	EventBus.lobby_updated.connect(_on_lobby_updated)
 	EventBus.telemetry_changed.connect(_refresh_top_bar)
@@ -36,6 +39,50 @@ func _ready() -> void:
 	_on_lobby_updated(GameState.lobby_players)
 	_refresh_top_bar()
 	_refresh_leaderboard()
+	_apply_host_permissions()
+
+func _ensure_visibility_setting_ui() -> void:
+	var vbox: Node = settings_panel.get_node_or_null("VBox")
+	if vbox == null or _visibility_toggle_btn != null:
+		return
+	var row: HBoxContainer = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+
+	var lbl: Label = Label.new()
+	lbl.text = "Oda Görünürlüğü:"
+	lbl.add_theme_font_size_override("font_size", 10)
+	row.add_child(lbl)
+
+	_visibility_toggle_btn = Button.new()
+	_visibility_toggle_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_visibility_toggle_btn.add_theme_font_size_override("font_size", 10)
+	_visibility_toggle_btn.pressed.connect(_on_toggle_room_visibility_pressed)
+	row.add_child(_visibility_toggle_btn)
+
+	vbox.add_child(row)
+	vbox.move_child(row, 1)
+
+func _on_toggle_room_visibility_pressed() -> void:
+	if GameState.is_room_open and not GameState.is_room_host:
+		return
+	GameState.set_room_public(not GameState.is_room_public)
+
+func _apply_host_permissions() -> void:
+	var is_host: bool = GameState.is_room_host or not GameState.is_room_open
+	mission_option.disabled = not is_host
+	modifier_option.disabled = not is_host
+	launch_site_option.disabled = not is_host
+	if _visibility_toggle_btn != null:
+		_visibility_toggle_btn.disabled = not is_host
+	if add_player_input != null:
+		add_player_input.editable = is_host
+	var start_btn: Button = get_node_or_null("HUD/TopBar/StartBtn") as Button
+	if start_btn == null:
+		start_btn = find_child("StartBtn", true, false) as Button
+	if start_btn != null:
+		start_btn.disabled = not is_host
+		if not is_host:
+			start_btn.text = "KURUCU BEKLENİYOR"
 
 func _populate_selectors() -> void:
 	mission_option.clear()
@@ -54,21 +101,35 @@ func _on_terminal_opened(terminal_name: String) -> void:
 	if terminal_name == "BRIEFING":
 		settings_panel.visible = not settings_panel.visible
 
+func _color_to_row(c: Color) -> int:
+	if c.b > 0.7 and c.r < 0.5:
+		return 1 # Mavi
+	if c.r > 0.8 and c.g > 0.7:
+		return 2 # Sarı
+	if c.g > 0.7 and c.r < 0.5:
+		return 3 # Yeşil
+	return 0 # Kırmızı
+
 func _on_lobby_updated(players: Array) -> void:
 	for child in crew_dummies.get_children():
 		child.queue_free()
 
-	for i in range(1, players.size()):
+	var slot_idx: int = 0
+	for i in range(players.size()):
 		var p: Dictionary = players[i]
+		if String(p.get("tag", "")) == PlayerProfile.full_tag:
+			continue
 		var dummy := Node2D.new()
-		dummy.position = CREW_POSITIONS[(i - 1) % CREW_POSITIONS.size()]
+		dummy.position = CREW_POSITIONS[slot_idx % CREW_POSITIONS.size()]
+		slot_idx += 1
 
 		var spr := Sprite2D.new()
 		spr.texture = ASTRONAUT_SHEET
 		spr.scale = Vector2(0.85, 0.85)
 		spr.offset.x = -7.0
 		spr.region_enabled = true
-		var row: int = i % 4
+		var p_color: Color = p.get("color", SUIT_COLORS[i % SUIT_COLORS.size()])
+		var row: int = _color_to_row(p_color)
 		spr.region_rect = Rect2(0, floor(row * 46.75), 50, 46)
 		dummy.add_child(spr)
 
@@ -89,7 +150,9 @@ func _on_lobby_updated(players: Array) -> void:
 
 func _refresh_top_bar() -> void:
 	var m: Dictionary = GameState.current_mission
-	room_info_label.text = "ODA: %s | OYUNCU: %d/4" % [GameState.room_code, GameState.lobby_players.size()]
+	var vis_tag: String = "PUBLIC" if GameState.is_room_public else "PRIVATE"
+	var role_tag: String = "KURUCU" if (GameState.is_room_host or not GameState.is_room_open) else "MİSAFİR"
+	room_info_label.text = "ODA: %s (%s) | %s | OYUNCU: %d/4" % [GameState.room_code, vis_tag, role_tag, GameState.lobby_players.size()]
 	mission_summary_label.text = "GÖREV: %s | BÜTÇE: $%.0fM | ROKET: %s" % [
 		m.get("name", "-"),
 		GameState.budget_m,
@@ -101,6 +164,19 @@ func _refresh_top_bar() -> void:
 		float(m.get("nominal_power_w", 0.0)),
 		float(m.get("max_mass_kg", 0.0))
 	]
+	if mission_option.selected != GameState.current_mission_idx and GameState.current_mission_idx < mission_option.item_count:
+		mission_option.selected = GameState.current_mission_idx
+	if modifier_option.selected != GameState.current_modifier_idx and GameState.current_modifier_idx < modifier_option.item_count:
+		modifier_option.selected = GameState.current_modifier_idx
+	if _visibility_toggle_btn != null:
+		if GameState.is_room_public:
+			_visibility_toggle_btn.text = "PUBLIC (Açık Odalarda Görünür)"
+			_visibility_toggle_btn.add_theme_color_override("font_color", Color(0.45, 0.95, 0.6))
+		else:
+			_visibility_toggle_btn.text = "PRIVATE (Sadece Oda Koduyla Giriş)"
+			_visibility_toggle_btn.add_theme_color_override("font_color", Color(1.0, 0.82, 0.35))
+	_sync_launch_site_dropdown()
+	_apply_host_permissions()
 
 func _refresh_leaderboard() -> void:
 	for child in leaderboard_list.get_children():
@@ -125,14 +201,23 @@ func _refresh_leaderboard() -> void:
 		leaderboard_list.add_child(empty_lbl)
 
 func _on_mission_selected(_idx: int) -> void:
+	if GameState.is_room_open and not GameState.is_room_host:
+		_refresh_top_bar()
+		return
 	GameState.setup_mission(mission_option.selected, modifier_option.selected)
 	_sync_launch_site_dropdown()
 	_refresh_leaderboard()
 
 func _on_modifier_selected(_idx: int) -> void:
+	if GameState.is_room_open and not GameState.is_room_host:
+		_refresh_top_bar()
+		return
 	GameState.setup_mission(mission_option.selected, modifier_option.selected)
 
 func _on_launch_site_selected(idx: int) -> void:
+	if GameState.is_room_open and not GameState.is_room_host:
+		_refresh_top_bar()
+		return
 	var sites: Array = GameState.missions_data.get("launch_sites", [])
 	if idx >= 0 and idx < sites.size():
 		GameState.select_launch_site(sites[idx].get("id", ""))
@@ -163,5 +248,7 @@ func _on_back_menu_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
 
 func _on_start_mission_pressed() -> void:
+	if GameState.is_room_open and not GameState.is_room_host:
+		return
 	GameState.start_mission()
 	get_tree().change_scene_to_file("res://scenes/world/station.tscn")
