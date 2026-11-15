@@ -37,8 +37,11 @@ const SUIT_COLORS: Array[Color] = [
 @onready var crew_dummies: Node2D = $CrewDummies
 @onready var player: CharacterBody2D = $Player
 
+var _visibility_toggle_btn: Button = null
+
 func _ready() -> void:
 	settings_panel.visible = false
+	_ensure_visibility_setting_ui()
 	_populate_selectors()
 	EventBus.lobby_updated.connect(_on_lobby_updated)
 	EventBus.telemetry_changed.connect(_refresh_top_bar)
@@ -83,13 +86,13 @@ func _apply_host_permissions() -> void:
 		_visibility_toggle_btn.disabled = not is_host
 	if add_player_input != null:
 		add_player_input.editable = is_host
-	var start_btn: Button = get_node_or_null("HUD/TopBar/StartBtn") as Button
+	var start_btn: BaseButton = get_node_or_null("HUD/TopBar/StartBtn") as BaseButton
 	if start_btn == null:
-		start_btn = find_child("StartBtn", true, false) as Button
+		start_btn = find_child("StartBtn", true, false) as BaseButton
 	if start_btn != null:
 		start_btn.disabled = not is_host
-		if not is_host:
-			start_btn.text = "KURUCU BEKLENİYOR"
+		if not is_host and start_btn is Button:
+			(start_btn as Button).text = "KURUCU BEKLENİYOR"
 
 func _setup_texture_button(btn: TextureButton) -> void:
 	btn.pivot_offset = btn.size * 0.5
@@ -149,11 +152,11 @@ func _on_lobby_updated(players: Array) -> void:
 		var p: Dictionary = players[i]
 		if String(p.get("tag", "")) == PlayerProfile.full_tag:
 			continue
-		var dummy := Node2D.new()
+		var dummy: Node2D = Node2D.new()
 		dummy.position = CREW_POSITIONS[slot_idx % CREW_POSITIONS.size()]
 		slot_idx += 1
 
-		var spr := Sprite2D.new()
+		var spr: Sprite2D = Sprite2D.new()
 		spr.texture = ASTRONAUT_SHEET
 		spr.scale = Vector2(0.85, 0.85)
 		spr.offset.x = -7.0
@@ -163,7 +166,7 @@ func _on_lobby_updated(players: Array) -> void:
 		spr.region_rect = Rect2(0, floor(row * 46.75), 50, 46)
 		dummy.add_child(spr)
 
-		var tag := Label.new()
+		var tag: Label = Label.new()
 		tag.text = p.get("tag", "Crew")
 		tag.z_index = 20
 		tag.z_as_relative = false
@@ -181,15 +184,15 @@ func _on_lobby_updated(players: Array) -> void:
 
 func _refresh_helmet_slots(players: Array) -> void:
 	player_count_label.text = str(players.size())
-	var slots := helmet_slots.get_children()
+	var slots: Array[Node] = helmet_slots.get_children()
 	for i in range(slots.size()):
-		var slot := slots[i] as TextureRect
+		var slot: TextureRect = slots[i] as TextureRect
 		if slot == null:
 			continue
 		if i < players.size():
 			var c: Color = players[i].get("color", SUIT_COLORS[i % SUIT_COLORS.size()])
 			var idx: int = _color_to_helmet_idx(c)
-			var atlas := AtlasTexture.new()
+			var atlas: AtlasTexture = AtlasTexture.new()
 			atlas.atlas = HUD_PLAYERS_SHEET
 			atlas.region = HELMET_REGIONS[idx]
 			slot.texture = atlas
@@ -208,7 +211,8 @@ func _color_to_helmet_idx(c: Color) -> int:
 
 func _refresh_top_bar() -> void:
 	var m: Dictionary = GameState.current_mission
-	room_info_label.text = "ODA: %s | OYUNCU: %d/4" % [GameState.room_code, GameState.lobby_players.size()]
+	var vis_tag: String = "PUBLIC" if GameState.is_room_public else "PRIVATE"
+	room_info_label.text = "ODA: %s (%s) | OYUNCU: %d/4" % [GameState.room_code, vis_tag, GameState.lobby_players.size()]
 	mission_summary_label.text = "GÖREV: %s | BÜTÇE: $%.0fM | ROKET: %s" % [
 		m.get("name", "-"),
 		GameState.budget_m,
@@ -239,10 +243,10 @@ func _refresh_leaderboard() -> void:
 		child.queue_free()
 
 	var current_id: String = GameState.current_mission.get("id", "")
-	var count := 0
+	var count: int = 0
 	for rec in LeaderboardManager.records:
 		if rec.get("mission_id", "") == current_id:
-			var lbl := Label.new()
+			var lbl: Label = Label.new()
 			lbl.text = "%s — %.1fs | Skor: %d" % [
 				rec.get("team", ""),
 				float(rec.get("time_sec", 0.0)),
@@ -251,7 +255,7 @@ func _refresh_leaderboard() -> void:
 			leaderboard_list.add_child(lbl)
 			count += 1
 	if count == 0:
-		var empty_lbl := Label.new()
+		var empty_lbl: Label = Label.new()
 		empty_lbl.text = "Bu görevde henüz rekor yok."
 		empty_lbl.modulate = Color(0.6, 0.65, 0.72)
 		leaderboard_list.add_child(empty_lbl)
