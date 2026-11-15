@@ -1,134 +1,352 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene format=3 uid="uid://bc02yn8yh7d83"]
 
-[ext_resource type="Script" path="res://scripts/station.gd" id="1_station"]
+[ext_resource type="Script" uid="uid://bdg544e24rd48" path="res://scripts/station.gd" id="1_station"]
 [ext_resource type="PackedScene" path="res://scenes/entities/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://scenes/entities/helper_drone.tscn" id="3_drone"]
 [ext_resource type="PackedScene" path="res://scenes/entities/terminal.tscn" id="4_terminal"]
-[ext_resource type="Theme" path="res://assets/pixel_ui_theme.tres" id="5_theme"]
+[ext_resource type="Theme" uid="uid://c3vtnm5v7ucrt" path="res://assets/pixel_ui_theme.tres" id="5_theme"]
 [ext_resource type="PackedScene" path="res://scenes/ui/market_ui.tscn" id="6_market"]
 [ext_resource type="PackedScene" path="res://scenes/ui/side_quest_modal.tscn" id="7_quest"]
 [ext_resource type="PackedScene" path="res://scenes/ui/dsn_minigame.tscn" id="8_dsn"]
-[ext_resource type="Texture2D" path="res://assets/station_bg.jpg" id="9_bg"]
+[ext_resource type="Texture2D" uid="uid://bcxbsqinsohfm" path="res://assets/station_bg.png" id="9_bg"]
+[ext_resource type="Texture2D" uid="uid://sgpnploekpqb" path="res://assets/station_fg.png" id="10_fg"]
+[ext_resource type="Texture2D" uid="uid://cukxyh3svwj8y" path="res://assets/station_fg_walls.png" id="11_fg_walls"]
 
-[sub_resource type="RectangleShape2D" id="WallH"]
-size = Vector2(640, 16)
-
-[sub_resource type="RectangleShape2D" id="WallV"]
-size = Vector2(16, 360)
-
-[node name="Station" type="Node2D"]
+[node name="Station" type="Node2D" unique_id=719507966]
+y_sort_enabled = true
 script = ExtResource("1_station")
 
-[node name="StationBackground" type="TextureRect" parent="."]
-offset_right = 640.0
+[node name="SpaceBackdrop" type="ColorRect" parent="." unique_id=1536829516]
+z_index = -10
+offset_top = -40.0
+offset_right = 1280.0
+offset_bottom = 400.0
+color = Color(0.0235, 0.0314, 0.0706, 1)
+
+[node name="StationBackground" type="TextureRect" parent="." unique_id=1850154358]
+z_index = -10
+offset_right = 1280.0
 offset_bottom = 360.0
 texture = ExtResource("9_bg")
 expand_mode = 1
-stretch_mode = 0
 
-[node name="Bounds" type="StaticBody2D" parent="."]
+[node name="Bounds" type="StaticBody2D" parent="." unique_id=1877402428]
 
-[node name="TopWall" type="CollisionShape2D" parent="Bounds"]
-position = Vector2(320, 22)
-shape = SubResource("WallH")
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Bounds" unique_id=1725035130]
+build_mode = 1
+polygon = PackedVector2Array(299, 271, 299, 233, 333, 233, 332, 167, 337, 167, 337, 125, 317, 127, 319, 116, 321, 111, 321, 84, 325, 79, 335, 77, 344, 77, 348, 76, 347, 61, 350, 59, 437, 59, 437, 75, 450, 75, 452, 84, 456, 87, 465, 87, 469, 83, 474, 80, 477, 85, 493, 85, 493, 91, 634, 91, 634, 186, 634, 190, 658, 189, 659, 122, 669, 132, 689, 117, 689, 108, 709, 107, 708, 111, 710, 115, 717, 116, 722, 113, 722, 108, 891, 107, 903, 107, 903, 187, 930, 187, 930, 104, 1018, 104, 1018, 117, 1085, 117, 1085, 172, 1107, 172, 1108, 74, 1238, 75, 1238, 87, 1233, 89, 1233, 109, 1235, 111, 1256, 111, 1256, 175, 1242, 176, 1241, 209, 1261, 209, 1264, 310, 1112, 310, 1112, 201, 1087, 200, 1086, 241, 929, 241, 928, 227, 906, 227, 906, 231, 905, 343, 808, 343, 808, 321, 755, 321, 755, 342, 660, 343, 660, 333, 634, 333, 634, 350, 581, 351, 582, 338, 561, 339, 560, 348, 533, 347, 533, 335, 429, 335, 430, 322, 470, 323, 476, 311, 561, 310, 564, 305, 581, 305, 581, 213, 560, 213, 560, 221, 560, 228, 503, 229, 485, 222, 474, 207, 481, 195, 508, 194, 513, 191, 562, 191, 563, 181, 582, 181, 581, 126, 372, 125, 371, 237, 363, 250, 362, 257, 351, 270)
 
-[node name="BottomWall" type="CollisionShape2D" parent="Bounds"]
-position = Vector2(320, 346)
-shape = SubResource("WallH")
+[node name="CollisionPolygon2D2" type="CollisionPolygon2D" parent="Bounds" unique_id=593125547]
+build_mode = 1
+polygon = PackedVector2Array(353, 100, 354, 109, 366, 107, 370, 105, 376, 110, 383, 111, 385, 115, 396, 116, 405, 115, 406, 111, 415, 109, 419, 107, 435, 107, 435, 102, 433, 96, 421, 96, 418, 91, 410, 86, 402, 80, 398, 74, 390, 73, 388, 77, 384, 81, 375, 85, 370, 95, 358, 95)
 
-[node name="LeftWall" type="CollisionShape2D" parent="Bounds"]
-position = Vector2(40, 180)
-shape = SubResource("WallV")
+[node name="CollisionPolygon2D3" type="CollisionPolygon2D" parent="Bounds" unique_id=271105150]
+build_mode = 1
+polygon = PackedVector2Array(636, 233, 635, 304, 655, 304, 665, 318, 670, 317, 673, 304, 673, 282, 659, 281, 659, 277, 658, 233)
 
-[node name="RightWall" type="CollisionShape2D" parent="Bounds"]
-position = Vector2(632, 180)
-shape = SubResource("WallV")
+[node name="CollisionPolygon2D4" type="CollisionPolygon2D" parent="Bounds" unique_id=2113133549]
+build_mode = 1
+polygon = PackedVector2Array(720, 189, 724, 208, 739, 226, 762, 237, 782, 242, 808, 238, 828, 230, 841, 215, 852, 194, 850, 172, 845, 164, 830, 151, 796, 143, 777, 141, 755, 143, 737, 153, 726, 169, 720, 185)
 
-[node name="Terminals" type="Node2D" parent="."]
+[node name="CollisionPolygon2D5" type="CollisionPolygon2D" parent="Bounds" unique_id=1153290305]
+build_mode = 1
+polygon = PackedVector2Array(702, 308, 711, 304, 719, 304, 727, 305, 729, 307, 732, 312, 733, 319, 731, 323, 724, 326, 714, 329, 704, 324, 700, 320, 700, 312)
 
-[node name="BriefingTerminal" parent="Terminals" instance=ExtResource("4_terminal")]
-position = Vector2(135, 82)
+[node name="CollisionPolygon2D6" type="CollisionPolygon2D" parent="Bounds" unique_id=651398202]
+build_mode = 1
+polygon = PackedVector2Array(840, 313, 840, 318, 841, 321, 848, 325, 857, 329, 864, 328, 871, 324, 872, 318, 872, 313, 871, 310, 865, 306, 857, 304, 849, 304, 843, 306, 841, 310)
+
+[node name="CollisionPolygon2D7" type="CollisionPolygon2D" parent="Bounds" unique_id=1770854786]
+build_mode = 1
+polygon = PackedVector2Array(872, 260, 883, 271, 905, 260, 905, 253, 896, 246)
+
+[node name="CollisionPolygon2D8" type="CollisionPolygon2D" parent="Bounds" unique_id=412853447]
+build_mode = 1
+polygon = PackedVector2Array(865, 135, 865, 144, 869, 149, 876, 152, 885, 152, 894, 147, 897, 142, 896, 133, 891, 128, 882, 126, 871, 127, 867, 130, 865, 134)
+
+[node name="CollisionPolygon2D9" type="CollisionPolygon2D" parent="Bounds" unique_id=1221191847]
+build_mode = 1
+polygon = PackedVector2Array(937, 163, 944, 163, 945, 165, 957, 166, 964, 161, 963, 155, 960, 152, 945, 149, 942, 151, 937, 151)
+
+[node name="CollisionPolygon2D10" type="CollisionPolygon2D" parent="Bounds" unique_id=1534949967]
+build_mode = 1
+polygon = PackedVector2Array(931, 110, 935, 111, 937, 114, 941, 116, 954, 116, 957, 113, 956, 105, 952, 102, 935, 101, 929, 103)
+
+[node name="CollisionPolygon2D11" type="CollisionPolygon2D" parent="Bounds" unique_id=2114056704]
+build_mode = 1
+polygon = PackedVector2Array(1009, 159, 1014, 163, 1023, 162, 1029, 162, 1035, 158, 1035, 153, 1032, 149, 1023, 147, 1011, 149, 1008, 154)
+
+[node name="CollisionPolygon2D12" type="CollisionPolygon2D" parent="Bounds" unique_id=895414030]
+build_mode = 1
+polygon = PackedVector2Array(1058, 157, 1059, 160, 1063, 162, 1073, 164, 1082, 162, 1085, 159, 1084, 151, 1080, 149, 1071, 148, 1062, 150)
+
+[node name="Terminals" type="Node2D" parent="." unique_id=1916353466]
+
+[node name="BriefingTerminal" parent="Terminals" unique_id=337400764 instance=ExtResource("4_terminal")]
+position = Vector2(392, 44)
 terminal_type = 0
 prompt_text = "[E] Brifing"
 show_placeholder_visual = false
 
-[node name="MarketTerminal" parent="Terminals" instance=ExtResource("4_terminal")]
-position = Vector2(145, 195)
-terminal_type = 1
+[node name="MarketTerminal" parent="Terminals" unique_id=2028336878 instance=ExtResource("4_terminal")]
+position = Vector2(322, 170)
 prompt_text = "[E] Mağaza"
 show_placeholder_visual = false
 
-[node name="PowerLabTerminal" parent="Terminals" instance=ExtResource("4_terminal")]
-position = Vector2(175, 292)
+[node name="PowerLabTerminal" parent="Terminals" unique_id=419882828 instance=ExtResource("4_terminal")]
+position = Vector2(517, 266)
+scale = Vector2(2.26, 2.26)
 terminal_type = 3
 prompt_text = "[E] Güç Lab"
 show_placeholder_visual = false
 
-[node name="AssemblyTerminal" parent="Terminals" instance=ExtResource("4_terminal")]
-position = Vector2(400, 125)
+[node name="AssemblyTerminal" parent="Terminals" unique_id=1668347369 instance=ExtResource("4_terminal")]
+position = Vector2(779.99994, 180.99998)
+scale = Vector2(2.765, 2.765)
 terminal_type = 2
 prompt_text = "[E] Monte Et"
 show_placeholder_visual = false
 
-[node name="DSNTerminal" parent="Terminals" instance=ExtResource("4_terminal")]
-position = Vector2(385, 265)
+[node name="DSNTerminal" parent="Terminals" unique_id=1254759518 instance=ExtResource("4_terminal")]
+position = Vector2(997, 94)
 terminal_type = 4
 prompt_text = "[E] DSN Kulesi"
 show_placeholder_visual = false
 
-[node name="LaunchTerminal" parent="Terminals" instance=ExtResource("4_terminal")]
-position = Vector2(585, 195)
+[node name="LaunchTerminal" parent="Terminals" unique_id=1562015965 instance=ExtResource("4_terminal")]
+position = Vector2(1195, 68)
 terminal_type = 5
 prompt_text = "[E] Fırlat"
 show_placeholder_visual = false
 
-[node name="ConveyorSpawnPoint" type="Marker2D" parent="."]
-position = Vector2(185, 220)
+[node name="ConveyorSpawnPoint" type="Marker2D" parent="." unique_id=430441505]
+position = Vector2(351, 230)
 
-[node name="Player" parent="." instance=ExtResource("2_player")]
-position = Vector2(242, 165)
+[node name="Player" parent="." unique_id=646341727 instance=ExtResource("2_player")]
+position = Vector2(634, 198)
 
-[node name="HelperDrone" parent="." instance=ExtResource("3_drone")]
-position = Vector2(242, 195)
+[node name="Camera2D" type="Camera2D" parent="Player" unique_id=1560808985]
+limit_left = 0
+limit_top = -34
+limit_right = 1280
+limit_bottom = 394
+limit_smoothed = true
+position_smoothing_enabled = true
+position_smoothing_speed = 8.0
 
-[node name="HUD" type="CanvasLayer" parent="."]
+[node name="HelperDrone" parent="." unique_id=1416779076 instance=ExtResource("3_drone")]
+position = Vector2(634, 222)
 
-[node name="TopBar" type="PanelContainer" parent="HUD"]
+[node name="FG_BriefingTable" type="Sprite2D" parent="." unique_id=644355892]
+position = Vector2(348, 83)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("10_fg")
+centered = false
+offset = Vector2(0, -54)
+region_enabled = true
+region_rect = Rect2(696, 112, 184, 114)
+metadata/_edit_lock_ = true
+
+[node name="FG_PowerLabTopWall" type="Sprite2D" parent="." unique_id=1373194287]
+position = Vector2(368, 116)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("10_fg")
+centered = false
+offset = Vector2(0, -8)
+region_enabled = true
+region_rect = Rect2(736, 224, 436, 68)
+
+[node name="FG_PowerLabMidCrates" type="Sprite2D" parent="." unique_id=1641878250]
+position = Vector2(458, 224)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("10_fg")
+centered = false
+offset = Vector2(0, -108)
+region_enabled = true
+region_rect = Rect2(916, 340, 256, 176)
+
+[node name="FG_SatelliteCenter" type="Sprite2D" parent="." unique_id=1299382413]
+position = Vector2(714, 162)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("10_fg")
+centered = false
+offset = Vector2(0, -168)
+region_enabled = true
+region_rect = Rect2(1428, 156, 236, 244)
+
+[node name="FG_RobotArmTopRight" type="Sprite2D" parent="." unique_id=1608023989]
+position = Vector2(832, 122)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("10_fg")
+centered = false
+offset = Vector2(0, -88)
+region_enabled = true
+region_rect = Rect2(1664, 156, 140, 156)
+
+[node name="FG_AssemblySmallProp" type="Sprite2D" parent="." unique_id=1180215406]
+position = Vector2(874, 150)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("10_fg")
+centered = false
+offset = Vector2(0, 8)
+region_enabled = true
+region_rect = Rect2(1748, 308, 68, 52)
+
+[node name="FG_AssemblyLeftRadio" type="Sprite2D" parent="." unique_id=568559024]
+position = Vector2(652, 248)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("10_fg")
+centered = false
+offset = Vector2(0, -36)
+region_enabled = true
+region_rect = Rect2(1304, 460, 76, 76)
+
+[node name="FG_AssemblyLeftLocker" type="Sprite2D" parent="." unique_id=1466394442]
+position = Vector2(650, 290)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("10_fg")
+centered = false
+offset = Vector2(0, -40)
+region_enabled = true
+region_rect = Rect2(1300, 540, 64, 84)
+
+[node name="FG_RobotArmBotLeft" type="Sprite2D" parent="." unique_id=201258418]
+position = Vector2(694, 296)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("10_fg")
+centered = false
+offset = Vector2(0, -80)
+region_enabled = true
+region_rect = Rect2(1388, 512, 128, 146)
+
+[node name="FG_RobotArmBotRight" type="Sprite2D" parent="." unique_id=348027805]
+position = Vector2(812, 296)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("10_fg")
+centered = false
+offset = Vector2(0, -100)
+region_enabled = true
+region_rect = Rect2(1624, 492, 120, 166)
+
+[node name="FG_AssemblyWorkbench" type="Sprite2D" parent="." unique_id=1833612881]
+position = Vector2(758, 299)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("10_fg")
+centered = false
+offset = Vector2(0, -6)
+region_enabled = true
+region_rect = Rect2(1516, 592, 108, 66)
+
+[node name="FG_AssemblyRightMiniBot" type="Sprite2D" parent="." unique_id=1578774552]
+position = Vector2(866, 250)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("10_fg")
+centered = false
+offset = Vector2(0, -50)
+region_enabled = true
+region_rect = Rect2(1732, 450, 82, 92)
+
+[node name="FG_AssemblyBottomLog" type="Sprite2D" parent="." unique_id=442224911]
+position = Vector2(680, 324)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("10_fg")
+centered = false
+offset = Vector2(0, -4)
+region_enabled = true
+region_rect = Rect2(1360, 644, 60, 44)
+
+[node name="FG_DSN_DishTop" type="Sprite2D" parent="." unique_id=789402489]
+position = Vector2(924, 88)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("10_fg")
+centered = false
+offset = Vector2(0, -44)
+region_enabled = true
+region_rect = Rect2(1848, 132, 104, 104)
+
+[node name="FG_DSN_DishBot1" type="Sprite2D" parent="." unique_id=618805881]
+position = Vector2(932, 140)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("10_fg")
+centered = false
+offset = Vector2(0, -44)
+region_enabled = true
+region_rect = Rect2(1864, 236, 104, 104)
+
+[node name="FG_DSN_DishBot2" type="Sprite2D" parent="." unique_id=1165958438]
+position = Vector2(988, 140)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("10_fg")
+centered = false
+offset = Vector2(0, -44)
+region_enabled = true
+region_rect = Rect2(1976, 236, 100, 104)
+
+[node name="FG_DSN_DishBot3" type="Sprite2D" parent="." unique_id=1586948524]
+position = Vector2(1040, 140)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("10_fg")
+centered = false
+offset = Vector2(0, -44)
+region_enabled = true
+region_rect = Rect2(2080, 236, 100, 104)
+
+[node name="FG_LaunchRoomConsole" type="Sprite2D" parent="." unique_id=1901348609]
+position = Vector2(1243, 191)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("10_fg")
+centered = false
+offset = Vector2(0, -47)
+region_enabled = true
+region_rect = Rect2(2486, 334, 42, 82)
+
+[node name="StationForegroundWalls" type="TextureRect" parent="." unique_id=845218723]
+z_index = 10
+offset_right = 1280.0
+offset_bottom = 360.0
+mouse_filter = 2
+texture = ExtResource("11_fg_walls")
+expand_mode = 1
+metadata/_edit_lock_ = true
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=518890926]
+
+[node name="TopBar" type="PanelContainer" parent="HUD" unique_id=55083151]
 offset_right = 640.0
 offset_bottom = 26.0
 theme = ExtResource("5_theme")
 
-[node name="HBox" type="HBoxContainer" parent="HUD/TopBar"]
+[node name="HBox" type="HBoxContainer" parent="HUD/TopBar" unique_id=687284571]
 layout_mode = 2
 theme_override_constants/separation = 12
 alignment = 1
 
-[node name="BudgetLabel" type="Label" parent="HUD/TopBar/HBox"]
+[node name="BudgetLabel" type="Label" parent="HUD/TopBar/HBox" unique_id=677372650]
 unique_name_in_owner = true
 layout_mode = 2
 text = "BUDGET: $180M"
 
-[node name="MassLabel" type="Label" parent="HUD/TopBar/HBox"]
+[node name="MassLabel" type="Label" parent="HUD/TopBar/HBox" unique_id=859505440]
 unique_name_in_owner = true
 layout_mode = 2
 text = "MASS: 1800/3117kg"
 
-[node name="PowerLabel" type="Label" parent="HUD/TopBar/HBox"]
+[node name="PowerLabel" type="Label" parent="HUD/TopBar/HBox" unique_id=1511365161]
 unique_name_in_owner = true
 layout_mode = 2
 text = "POWER: +4444W"
 
-[node name="DataLabel" type="Label" parent="HUD/TopBar/HBox"]
+[node name="DataLabel" type="Label" parent="HUD/TopBar/HBox" unique_id=1573960348]
 unique_name_in_owner = true
 layout_mode = 2
 text = "DATA: 0.0GB"
 
-[node name="TimerLabel" type="Label" parent="HUD/TopBar/HBox"]
+[node name="TimerLabel" type="Label" parent="HUD/TopBar/HBox" unique_id=1665760718]
 unique_name_in_owner = true
 layout_mode = 2
 text = "T-PLUS 00:00"
 
-[node name="StatusLabel" type="Label" parent="HUD"]
+[node name="StatusLabel" type="Label" parent="HUD" unique_id=1397386490]
 unique_name_in_owner = true
 offset_left = 10.0
 offset_top = 338.0
@@ -138,7 +356,7 @@ theme = ExtResource("5_theme")
 text = "Durum: Hazır"
 horizontal_alignment = 1
 
-[node name="InteractBtn" type="Button" parent="HUD"]
+[node name="InteractBtn" type="Button" parent="HUD" unique_id=1992894435]
 offset_left = 550.0
 offset_top = 330.0
 offset_right = 632.0
@@ -146,10 +364,10 @@ offset_bottom = 356.0
 theme = ExtResource("5_theme")
 text = "INTERACT"
 
-[node name="MarketUI" parent="HUD" instance=ExtResource("6_market")]
+[node name="MarketUI" parent="HUD" unique_id=1606265529 instance=ExtResource("6_market")]
 
-[node name="SideQuestModal" parent="HUD" instance=ExtResource("7_quest")]
+[node name="SideQuestModal" parent="HUD" unique_id=461934991 instance=ExtResource("7_quest")]
 
-[node name="DSNMinigame" parent="HUD" instance=ExtResource("8_dsn")]
+[node name="DSNMinigame" parent="HUD" unique_id=1234290514 instance=ExtResource("8_dsn")]
 
 [connection signal="pressed" from="HUD/InteractBtn" to="." method="_on_interact_btn_pressed"]

@@ -5,6 +5,7 @@ const CELL_H: float = 46.75
 const COL_CENTER_X: Array[float] = [32.0, 28.0, 24.0, 18.0, 16.0]
 
 @export var base_speed: float = 120.0
+@export var is_local_player: bool = true
 
 var interactable_target: Node = null
 var carried_box: Node2D = null
@@ -22,6 +23,11 @@ func _ready() -> void:
 	wall_min_slide_angle = 0.0
 	EventBus.lobby_updated.connect(_on_lobby_updated)
 	_sync_color_row()
+	var cam: Camera2D = get_node_or_null("Camera2D") as Camera2D
+	if cam != null:
+		cam.enabled = is_local_player
+		if is_local_player:
+			cam.make_current()
 
 func _on_lobby_updated(_players: Array) -> void:
 	_sync_color_row()
@@ -41,6 +47,8 @@ func _color_to_row(c: Color) -> int:
 	return 0 # Kırmızı
 
 func _physics_process(delta: float) -> void:
+	if not is_local_player:
+		return
 	var input_dir: Vector2 = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 	var speed_mult: float = 0.80 if carried_box != null else 1.0
 	velocity = input_dir * base_speed * speed_mult
@@ -130,6 +138,8 @@ func _update_sprite_frame(col: int) -> void:
 	sprite.offset.x = (cx - 25.0) if sprite.flip_h else (25.0 - cx)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not is_local_player:
+		return
 	if event.is_action_pressed("ui_accept"):
 		try_interact()
 	elif event is InputEventKey:
