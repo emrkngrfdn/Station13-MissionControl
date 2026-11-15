@@ -164,13 +164,49 @@ func _populate_rockets() -> void:
 	rocket_option.clear()
 	var rockets: Array = GameState.parts_data.get("rockets", [])
 	var selected_id: String = String(GameState.selected_rocket.get("id", ""))
-	var selected_idx: int = 0
-	for i in range(rockets.size()):
-		var r: Dictionary = rockets[i]
-		rocket_option.add_item("%s (%.0f kg)" % [String(r.get("name", "")), float(r.get("max_mass_kg", 0))])
-		if String(r.get("id", "")) == selected_id:
-			selected_idx = i
-	rocket_option.selected = selected_idx
+	var bus_mass: float = float(GameState.current_mission.get("bus_dry_mass_kg", 0.0))
+	var distance_au: float = float(GameState.current_mission.get("distance_au", 1.0))
+	var needs_deep_space: bool = distance_au > 1.2
+
+	var compatible: Array = []
+	for r in rockets:
+		var r_dict: Dictionary = r
+		var r_id: String = String(r_dict.get("id", ""))
+		var r_cap: float = float(r_dict.get("max_mass_kg", 0.0))
+		var r_deep: bool = bool(r_dict.get("deep_space", false))
+		if r_id != selected_id:
+			if r_cap < bus_mass:
+				continue
+			if needs_deep_space and not r_deep:
+				continue
+		compatible.append(r_dict)
+
+	compatible.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a.get("max_mass_kg", 0.0)) < float(b.get("max_mass_kg", 0.0))
+	)
+
+	var current_tier_idx: int = 0
+	for i in range(compatible.size()):
+		if String(compatible[i].get("id", "")) == selected_id:
+			current_tier_idx = i
+			break
+
+	for i in range(compatible.size()):
+		var r_dict: Dictionary = compatible[i]
+		var r_cap: float = float(r_dict.get("max_mass_kg", 0.0))
+		var upgrade_cost: float = GameState.get_rocket_upgrade_cost(r_dict)
+		var label: String = "%s (%.0f kg)" % [String(r_dict.get("name", "")), r_cap]
+		var is_locked: bool = i > current_tier_idx + 1
+		if is_locked:
+			label += " [KİLİTLİ - Önce 1 alt kademe]"
+		elif upgrade_cost > 0.0:
+			label += " [+$%.0fM]" % upgrade_cost
+		rocket_option.add_item(label)
+		rocket_option.set_item_metadata(i, r_dict)
+		if is_locked:
+			rocket_option.set_item_disabled(i, true)
+	if rocket_option.item_count > 0:
+		rocket_option.selected = current_tier_idx
 
 func _populate_parts() -> void:
 	for child in parts_grid.get_children():
@@ -260,11 +296,23 @@ func _on_buy_part_pressed(part: Dictionary) -> void:
 		EventBus.status_message.emit(err_msg, true)
 
 func _on_rocket_selected(idx: int) -> void:
-	var rockets: Array = GameState.parts_data.get("rockets", [])
-	if idx >= 0 and idx < rockets.size():
-		GameState.select_rocket(String(rockets[idx].get("id", "")))
+	if idx >= 0 and idx < rocket_option.item_count:
+		var r: Dictionary = rocket_option.get_item_metadata(idx)
+		var upgrade_cost: float = GameState.get_rocket_upgrade_cost(r)
+		var ok: bool = GameState.select_rocket(String(r.get("id", "")))
+		_populate_rockets()
 		_refresh_header()
-		status_label.text = "Roket güncellendi: %s" % String(rockets[idx].get("name", ""))
+		if ok:
+			status_label.add_theme_color_override("font_color", Color(0.45, 0.95, 0.65))
+			if upgrade_cost > 0.0:
+				status_label.text = "Roket yükseltildi: %s (-$%.0fM)" % [String(r.get("name", "")), upgrade_cost]
+			else:
+				status_label.text = "Roket güncellendi: %s" % String(r.get("name", ""))
+		else:
+			status_label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
+			status_label.text = "BÜTÇE YETERSİZ! %s için +$%.0fM gerekiyor (Mevcut: $%.0fM)." % [
+				String(r.get("name", "")), upgrade_cost, GameState.budget_m
+			]
 
 func _on_close_pressed() -> void:
 	visible = false

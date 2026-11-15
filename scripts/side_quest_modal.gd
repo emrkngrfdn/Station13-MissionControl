@@ -31,6 +31,11 @@ var _orbit_needle: ColorRect = null
 var _orbit_lock_btn: Button = null
 
 var _wiring_done: bool = false
+var _wire_fault_triggered: bool = false
+var _wire_bonus_active: bool = false
+var _bg_wire_trip_timer: float = 0.0
+var _next_bg_wire_trip_interval: float = 48.0
+var _bg_wire_trip_count: int = 0
 var _dragging_wire_id: int = -1
 var _drag_mouse_pos: Vector2 = Vector2.ZERO
 var _matched_wires: Array[int] = []
@@ -94,6 +99,15 @@ func _ensure_extra_ui() -> void:
 		vbox.add_child(_fail_mission_btn)
 
 func _process(delta: float) -> void:
+	if GameState.is_mission_active and _wiring_done and _bg_wire_trip_count < 2:
+		var in_crisis: bool = visible and bool(_current_quest.get("is_random_crisis", false))
+		if not in_crisis and not visible:
+			_bg_wire_trip_timer += delta
+			if _bg_wire_trip_timer >= _next_bg_wire_trip_interval:
+				_bg_wire_trip_timer = 0.0
+				_next_bg_wire_trip_interval = randf_range(40.0, 70.0)
+				_trigger_background_wire_trip()
+
 	if visible and _orbit_game_active:
 		_orbit_cursor_deg += _orbit_dir * 115.0 * delta
 		if _orbit_cursor_deg >= 180.0:
@@ -137,6 +151,11 @@ func _reset_quests() -> void:
 	_orbit_game_active = false
 	_orbit_alignment_done = false
 	_wiring_done = false
+	_wire_fault_triggered = false
+	_wire_bonus_active = false
+	_bg_wire_trip_timer = 0.0
+	_next_bg_wire_trip_interval = randf_range(40.0, 70.0)
+	_bg_wire_trip_count = 0
 	_matched_wires.clear()
 
 func _on_random_crisis_triggered(quest_data: Dictionary) -> void:
@@ -156,13 +175,10 @@ func _on_terminal_opened(terminal_name: String) -> void:
 	if terminal_name == "BRIEFING":
 		GameState.mark_briefing_completed()
 		EventBus.status_message.emit("BRİFİNG TAMAMLANDI: Görev hedefleri ve mühendislik kısıtları onaylandı.", false)
-		var quests: Array = GameState.get_available_side_quests_for_mission()
-		for q in quests:
-			var q_id: String = String(q.get("id", ""))
-			if not bool(q.get("is_random_crisis", false)) and not _resolved_quest_ids.has(q_id) and not GameState.resolved_quest_ids.has(q_id):
-				if String(q.get("room", "")) != "POWER_LAB":
-					open_quest(q)
-					return
+		var next_q: Dictionary = _get_next_briefing_quest()
+		if not next_q.is_empty():
+			open_quest(next_q)
+			return
 		_open_briefing_summary()
 	elif terminal_name == "POWER_LAB":
 		var quests: Array = GameState.get_available_side_quests_for_mission()
@@ -175,7 +191,8 @@ func _on_terminal_opened(terminal_name: String) -> void:
 		if not _wiring_done:
 			visible = true
 			move_to_front()
-			_build_power_wiring_ui(_pending_result_msg if _pending_result_msg != "" else "Güç kaynağı seçildi.")
+			var has_existing_wires: bool = not _wire_defs.is_empty() and not _matched_wires.is_empty()
+			_build_power_wiring_ui(_pending_result_msg if _pending_result_msg != "" else "Güç kaynağı seçildi.", has_existing_wires)
 		else:
 			_open_power_lab_summary()
 
@@ -202,11 +219,21 @@ func _open_power_lab_summary() -> void:
 	feedback_label.add_theme_color_override("font_color", Color(0.55, 0.9, 1.0))
 	feedback_label.text = "Güç Lab işlemleri tamam! Ek güç panelleri veya bataryalar için Tedarik Mağazası'nı kullanabilirsin."
 
+func _get_next_briefing_quest() -> Dictionary:
+	var quests: Array = GameState.get_available_side_quests_for_mission()
+	for q in quests:
+		var q_id: String = String(q.get("id", ""))
+		if not bool(q.get("is_random_crisis", false)) and not _resolved_quest_ids.has(q_id) and not GameState.resolved_quest_ids.has(q_id):
+			if String(q.get("room", "")) != "POWER_LAB":
+				return q
+	return {}
+
 func _open_briefing_summary() -> void:
 	_current_quest = {}
 	_is_resolving = true
 	_has_timer = false
 	visible = true
+	move_to_front()
 
 	if _timer_box != null:
 		_timer_box.visible = false
@@ -216,22 +243,34 @@ func _open_briefing_summary() -> void:
 		_ack_btn.visible = true
 
 	var m: Dictionary = GameState.current_mission
-	title_label.text = "GÖREV BRİFİNGİ ONAYLANDI: %s" % String(m.get("name", "Görev"))
+	var site_name: String = String(GameState.selected_launch_site.get("name", "-"))
+	title_label.text = "BRİFİNG RAPORU: %s" % String(m.get("name", "Görev"))
 	title_label.add_theme_color_override("font_color", Color(0.45, 0.95, 0.65))
-	desc_label.text = "%s\n\n• Yörünge: %s\n• Nominal Güç: %.0f W | Kütle Limiti: %.0f kg\n• Hedef Bilim Puanı: %d" % [
-		String(m.get("description", "")),
-		String(m.get("orbit_label", "")),
-		float(m.get("nominal_power_w", 0.0)),
-		float(m.get("max_mass_kg", 0.0)),
-		int(m.get("target_science", 500))
-	]
+
+	var lines: Array[String] = []
+	lines.append("• Fırlatma Üssü: %s | Yörünge: %s" % [site_name, String(m.get("orbit_label", ""))])
+	lines.append("• Güncel Durum: Bütçe $%.0fM | Kütle %.0f/%.0f kg | İniş %%%d" % [
+		GameState.budget_m,
+		GameState.get_effective_mass_kg(),
+		GameState.get_effective_mass_limit_kg(),
+		GameState.landing_success_chance
+	])
+	lines.append("")
+	lines.append("YAPILAN SEÇİMLER & SONUÇLAR:")
+	if GameState.decision_logs.is_empty():
+		lines.append("• Henüz karar kaydı yok.")
+	else:
+		for log_item in GameState.decision_logs:
+			lines.append("✓ " + str(log_item))
+
+	desc_label.text = "\n".join(lines)
 	for child in options_box.get_children():
 		child.queue_free()
 	if not _orbit_alignment_done:
 		_build_orbit_alignment_ui("Görev hedefleri onaylandı.")
 		return
 	feedback_label.add_theme_color_override("font_color", Color(0.55, 0.9, 1.0))
-	feedback_label.text = "Brifing ve yörünge hizalaması tamamlandı! Tedarik Mağazası ve Güç Lab odalarına geçebilirsin."
+	feedback_label.text = "Tüm brifing kararları ve yörünge hizalaması tamam! Mağaza ve Güç Lab'a geçebilirsin."
 
 func open_quest(quest_data: Dictionary) -> void:
 	_current_quest = quest_data
@@ -445,18 +484,26 @@ func _resolve_with_option(opt: Dictionary, is_timeout: bool, was_random: bool = 
 
 	var is_crisis_q: bool = bool(_current_quest.get("is_random_crisis", false))
 	var room_name: String = String(_current_quest.get("room", ""))
-	if not is_crisis_q and room_name != "POWER_LAB" and not _orbit_alignment_done:
-		_build_orbit_alignment_ui(result_msg)
-		return
+	if not is_crisis_q and room_name != "POWER_LAB":
+		var next_briefing_q: Dictionary = _get_next_briefing_quest()
+		if not next_briefing_q.is_empty():
+			open_quest(next_briefing_q)
+			return
+		if not _orbit_alignment_done:
+			_build_orbit_alignment_ui(result_msg)
+			return
 	if not is_crisis_q and room_name == "POWER_LAB" and not _wiring_done:
 		_build_power_wiring_ui(result_msg)
 		return
 
-	var is_bad: bool = is_timeout or result_msg.contains("HASAR") or result_msg.contains("BAŞARISIZ") or result_msg.contains("ÇÖKTÜ") or result_msg.contains("SAPMA") or result_msg.contains("TÜKENDİ") or result_msg.contains("TAKLA") or result_msg.contains("SÜRE DOLDU")
-	feedback_label.add_theme_color_override(
-		"font_color",
-		Color(1.0, 0.45, 0.4) if is_bad else Color(0.4, 0.95, 0.55)
-	)
+	var l_delta: int = GameState.last_quest_landing_delta
+	var has_bad_keyword: bool = is_timeout or result_msg.contains("BOZULDU") or result_msg.contains("HASAR") or result_msg.contains("BAŞARISIZ") or result_msg.contains("ÇÖKTÜ") or result_msg.contains("SAPMA") or result_msg.contains("TÜKENDİ") or result_msg.contains("TAKLA") or result_msg.contains("DONMA") or result_msg.contains("SÜRE DOLDU")
+	var result_color: Color = Color(0.4, 0.95, 0.55)
+	if has_bad_keyword or l_delta < 0 or GameState.last_quest_is_negative:
+		result_color = Color(1.0, 0.45, 0.4)
+	elif l_delta == 0:
+		result_color = Color(1.0, 0.82, 0.35)
+	feedback_label.add_theme_color_override("font_color", result_color)
 	feedback_label.text = "SONUÇ: " + result_msg
 
 	# Otomatik kapanmaz: Oyuncu sonucu rahatça okuduktan sonra kendi kapatır
@@ -586,10 +633,12 @@ func _on_orbit_lock_pressed() -> void:
 		feedback_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.4))
 		feedback_label.text = "Hedef pencere dışına kilitlendi (%.0f°). Tekrar denemek için butona bas!" % _orbit_cursor_deg
 
-func _build_power_wiring_ui(prev_result: String) -> void:
+func _build_power_wiring_ui(prev_result: String, preserve_matched: bool = false) -> void:
 	_pending_result_msg = prev_result
 	_dragging_wire_id = -1
-	_matched_wires.clear()
+	if not preserve_matched:
+		_wire_fault_triggered = false
+		_matched_wires.clear()
 	if _timer_box != null:
 		_timer_box.visible = false
 	if _close_btn != null:
@@ -604,15 +653,18 @@ func _build_power_wiring_ui(prev_result: String) -> void:
 	for child in options_box.get_children():
 		child.queue_free()
 
-	_wire_defs = [
-		{ "id": 0, "name": "KIRMIZI (+28V Ana)", "color": Color(0.98, 0.32, 0.32) },
-		{ "id": 1, "name": "MAVİ (Termal Hat)", "color": Color(0.28, 0.72, 1.0) },
-		{ "id": 2, "name": "SARI (Telemetri)", "color": Color(0.98, 0.84, 0.25) },
-		{ "id": 3, "name": "YEŞİL (Sigorta)", "color": Color(0.32, 0.92, 0.5) }
-	]
-	_right_wire_order = [2, 0, 3, 1]
-	if randi() % 2 == 0:
-		_right_wire_order = [1, 3, 0, 2]
+	if not preserve_matched or _wire_defs.is_empty():
+		_wire_defs = [
+			{ "id": 0, "name": "KIRMIZI (+28V Ana)", "color": Color(0.98, 0.32, 0.32) },
+			{ "id": 1, "name": "MAVİ (Termal Hat)", "color": Color(0.28, 0.72, 1.0) },
+			{ "id": 2, "name": "SARI (Telemetri)", "color": Color(0.98, 0.84, 0.25) },
+			{ "id": 3, "name": "YEŞİL (Sigorta)", "color": Color(0.32, 0.92, 0.5) }
+		]
+		_wire_defs.shuffle()
+		_right_wire_order = [0, 1, 2, 3]
+		_right_wire_order.shuffle()
+		while _right_wire_order == [0, 1, 2, 3]:
+			_right_wire_order.shuffle()
 
 	_wire_canvas = Control.new()
 	_wire_canvas.custom_minimum_size = Vector2(360, 118)
@@ -622,8 +674,12 @@ func _build_power_wiring_ui(prev_result: String) -> void:
 	_wire_canvas.gui_input.connect(_on_wire_canvas_gui_input)
 	options_box.add_child(_wire_canvas)
 
-	feedback_label.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0))
-	feedback_label.text = "Soldaki renkli soketten fareyle basılı tutup sağdaki aynı renkli sokete kablo çek (0/4 bağlandı)."
+	if preserve_matched:
+		feedback_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.35))
+		feedback_label.text = "BAĞLANTI KOPTU! Atan kabloları yeniden bağla (%d/4 bağlı)." % _matched_wires.size()
+	else:
+		feedback_label.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0))
+		feedback_label.text = "Soldaki renkli soketten fareyle basılı tutup sağdaki aynı renkli sokete kablo çek (0/4 bağlandı)."
 
 func _get_wire_row_y(row_idx: int) -> float:
 	return 8.0 + float(row_idx) * 27.0
@@ -712,11 +768,18 @@ func _on_wire_canvas_gui_input(event: InputEvent) -> void:
 						if target_wid == _dragging_wire_id and not _matched_wires.has(target_wid):
 							_matched_wires.append(target_wid)
 							_dragging_wire_id = -1
+							var broken_names: String = _maybe_trigger_wire_fault()
 							_wire_canvas.queue_redraw()
+							if broken_names != "":
+								feedback_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.35))
+								feedback_label.text = "UYARI — BAĞ BOZULDU! %s bağlantısı gevşedi (%d/4). Lütfen yeniden bağla!" % [broken_names, _matched_wires.size()]
+								return
 							if _matched_wires.size() >= 4:
 								_wiring_done = true
 								var wire_note: String = "Güç Lab sigorta ve bara kabloları eksiksiz bağlandı (+15 W güç verimi, +%5 iniş başarısı)!"
-								GameState.apply_minigame_bonus(0.0, 15.0, 5, 0, wire_note)
+								if not _wire_bonus_active:
+									_wire_bonus_active = true
+									GameState.apply_minigame_bonus(0.0, 15.0, 5, 0, wire_note)
 								feedback_label.add_theme_color_override("font_color", Color(0.4, 0.95, 0.55))
 								feedback_label.text = "TÜM KABLOLAR BAĞLANDI (4/4)! " + wire_note
 								if _ack_btn != null:
@@ -735,6 +798,47 @@ func _on_wire_canvas_gui_input(event: InputEvent) -> void:
 			var mm: InputEventMouseMotion = event as InputEventMouseMotion
 			_drag_mouse_pos = mm.position
 			_wire_canvas.queue_redraw()
+
+func _maybe_trigger_wire_fault() -> String:
+	if _wire_fault_triggered or _matched_wires.size() < 3:
+		return ""
+	var trigger_chance: float = 0.35 if _matched_wires.size() == 3 else 0.45
+	if randf() >= trigger_chance:
+		return ""
+	_wire_fault_triggered = true
+	var break_count: int = 1 if randf() < 0.65 else 2
+	break_count = mini(break_count, _matched_wires.size() - 1)
+	var candidates: Array[int] = _matched_wires.duplicate()
+	candidates.shuffle()
+	var broken_labels: Array[String] = []
+	for i in range(break_count):
+		var wid: int = candidates[i]
+		_matched_wires.erase(wid)
+		broken_labels.append(String(_wire_defs[wid]["name"]))
+	return ", ".join(broken_labels)
+
+func _trigger_background_wire_trip() -> void:
+	if _matched_wires.is_empty() or _wire_defs.is_empty():
+		return
+	_bg_wire_trip_count += 1
+	_wiring_done = false
+	var break_count: int = 1 if randf() < 0.65 else 2
+	break_count = mini(break_count, _matched_wires.size() - 1)
+	var candidates: Array[int] = _matched_wires.duplicate()
+	candidates.shuffle()
+	var broken_labels: Array[String] = []
+	for i in range(break_count):
+		var wid: int = candidates[i]
+		_matched_wires.erase(wid)
+		broken_labels.append(String(_wire_defs[wid]["name"]))
+	var broken_names: String = ", ".join(broken_labels)
+	if _wire_bonus_active:
+		_wire_bonus_active = false
+		GameState.apply_minigame_bonus(0.0, -15.0, -5, 0, "GÜÇ LAB KABLO ATTI: %s bağlantısı koptu (-15 W, -%%5 iniş)!" % broken_names)
+	EventBus.status_message.emit(
+		"GÜÇ LAB UYARISI: %s kablosu attı! Güç Lab terminaline dönüp yeniden bağlayın (-15W)." % broken_names,
+		true
+	)
 
 func _on_close_pressed() -> void:
 	_orbit_game_active = false

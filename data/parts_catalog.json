@@ -5,7 +5,7 @@
     { "id": "atlas_v_401", "name": "Atlas V 401 (Ay / LRO)", "max_mass_kg": 2200.0, "deep_space": true, "cost_m": 65 },
     { "id": "atlas_v_541", "name": "Atlas V 541 (Mars 2020)", "max_mass_kg": 4150.0, "deep_space": true, "cost_m": 85 },
     { "id": "atlas_v_551", "name": "Atlas V 551 (Jüpiter / Juno)", "max_mass_kg": 3625.0, "deep_space": true, "cost_m": 95 },
-    { "id": "falcon9", "name": "SpaceX Falcon 9 (Orta-Ağır)", "max_mass_kg": 15000.0, "deep_space": true, "cost_m": 67 },
+    { "id": "falcon9", "name": "SpaceX Falcon 9 (Orta-Ağır)", "max_mass_kg": 15000.0, "deep_space": true, "cost_m": 120 },
     { "id": "sls", "name": "NASA SLS Block 1 (Süper Ağır)", "max_mass_kg": 27000.0, "deep_space": true, "cost_m": 220 }
   ],
   "parts": [

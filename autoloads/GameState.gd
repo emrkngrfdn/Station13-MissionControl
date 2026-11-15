@@ -55,6 +55,8 @@ var dsn_station_timer: float = 0.0
 var active_crisis_id: String = ""
 var crisis_votes: Dictionary = {}
 var last_crisis_vote_result: Dictionary = {}
+var last_quest_landing_delta: int = 0
+var last_quest_is_negative: bool = false
 
 # Özel Mekanikler (Mars Power Cycling / MOXIE 300W, JunoCam Radyasyon, DSN SSD)
 var power_cycling_enabled: bool = false
@@ -68,6 +70,7 @@ var briefing_completed: bool = false
 var purchased_parts: Array = []
 var installed_parts: Array = []
 var selected_rocket: Dictionary = {}
+var _paid_rocket_cost: float = 0.0
 var selected_launch_site: Dictionary = {}
 var decision_logs: Array[String] = []
 var resolved_quest_ids: Array[String] = []
@@ -598,6 +601,7 @@ func setup_mission(mission_idx: int, modifier_idx: int, broadcast: bool = true) 
 
 	var rec_rocket_id: String = String(current_mission.get("recommended_rocket_id", ""))
 	selected_rocket = _find_by_id(parts_data.get("rockets", []), rec_rocket_id, 0)
+	_paid_rocket_cost = float(selected_rocket.get("cost_m", 0.0))
 
 	var rec_site_id: String = String(current_mission.get("recommended_launch_site_id", ""))
 	selected_launch_site = _find_by_id(missions_data.get("launch_sites", []), rec_site_id, 0)
@@ -632,12 +636,32 @@ func _find_by_id(items: Array, target_id: String, fallback_idx: int = 0) -> Dict
 		return items[fallback_idx]
 	return {}
 
-func select_rocket(rocket_id: String, broadcast: bool = true) -> void:
-	selected_rocket = _find_by_id(parts_data.get("rockets", []), rocket_id, 0)
+func get_rocket_upgrade_cost(new_rocket: Dictionary) -> float:
+	var new_cost: float = float(new_rocket.get("cost_m", 0.0))
+	return max(0.0, new_cost - _paid_rocket_cost)
+
+func select_rocket(rocket_id: String, broadcast: bool = true) -> bool:
+	var new_rocket: Dictionary = _find_by_id(parts_data.get("rockets", []), rocket_id, 0)
+	if broadcast:
+		var upgrade_cost: float = get_rocket_upgrade_cost(new_rocket)
+		if upgrade_cost > budget_m:
+			EventBus.status_message.emit(
+				"BÜTÇE YETERSİZ! Roket yükseltmesi için $%.0fM gerekiyor (Mevcut: $%.0fM)." % [upgrade_cost, budget_m],
+				true
+			)
+			return false
+		if upgrade_cost > 0.0:
+			budget_m -= upgrade_cost
+			_paid_rocket_cost += upgrade_cost
+			decision_logs.append("Roket yükseltildi: %s (-$%.0fM)." % [String(new_rocket.get("name", "")), upgrade_cost])
+	else:
+		_paid_rocket_cost = max(_paid_rocket_cost, float(new_rocket.get("cost_m", 0.0)))
+	selected_rocket = new_rocket
 	EventBus.rocket_changed.emit(selected_rocket)
 	recalculate()
 	if broadcast and is_network_active and multiplayer.is_server():
 		_broadcast_lobby_state()
+	return true
 
 func select_launch_site(site_id: String, broadcast: bool = true) -> void:
 	selected_launch_site = _find_by_id(missions_data.get("launch_sites", []), site_id, 0)
@@ -825,89 +849,85 @@ func apply_side_quest_option(opt: Dictionary, quest_id: String = "") -> void:
 	var mechanic: String = String(resolved_opt.get("crisis_mechanic", ""))
 	match mechanic:
 		"SOLAR_FLARE_GAMBLE":
-			if randf() < float(resolved_opt.get("chance_success", 0.50)):
+			var has_shield_or_av: bool = has_installed_tag("radiation_shield") or has_installed_tag("thermal_survival") or has_installed_type("survival") or has_installed_type("avionics")
+			if has_shield_or_av and net_power_w >= 30.0:
 				s_delta += 240
 				l_delta += 10
-				note = "GÜNEŞ PATLAMASI KAYDEDİLDİ (%50 Şans Tuttu!): Kameralar CME patlamasını doğrudan yakaladı (+240 Bilim Puanı, +%10 İniş)!"
+				note = "KORUMALI GÖZLEM BAŞARILI: Kalkan/aviyonik donanımı ve yeterli güç (+30W) sayesinde CME patlaması hasarsız kaydedildi (+240 Bilim, +%10 İniş)!"
 			else:
 				s_delta -= 120
 				p_delta -= 40.0
 				l_delta -= 20
-				note = "İŞLEMCİ HASARI (%50 Risk Gerçekleşti!): Yüksek enerjili protonlar ana işlemci/hafıza kartına kalıcı hasar verdi (-40W, -120 Bilim, -%20 İniş)!"
+				note = "İŞLEMCİ HASARI: Koruma/aviyonik modülü veya +30W güç rezervi eksik olduğu için protonlar sisteme hasar verdi (-40W, -120 Bilim, -%20 İniş)!"
 		"MICROMETEOROID_BURN":
 			var has_nav: bool = has_installed_tag("laser_altimeter") or has_installed_tag("rover_navigation") or has_installed_type("avionics")
-			var win_chance: float = 0.85 if has_nav else float(resolved_opt.get("chance_success", 0.40))
-			if randf() < win_chance:
+			var has_mass_margin: bool = get_effective_mass_kg() + 40.0 <= get_effective_mass_limit_kg()
+			if has_nav and has_mass_margin:
 				l_delta += 15
 				s_delta += 50
-				note = "ACİL MANEVRA BAŞARILI: Navigasyon bilgisayarı yakıt sızıntısı bitmeden aracı hedef yörüngeye oturttu (+%15 İniş, +50 Bilim)!"
+				note = "ACİL MANEVRA BAŞARILI: Aviyonik yönelim ve yeterli kütle/yakıt marjı sayesinde araç hedef yörüngeye oturttu (+%15 İniş, +50 Bilim)!"
 			else:
 				m_delta += 85.0
 				l_delta -= 20
-				note = "DELTA-V SAPMASI: Navigasyon bilgisayarı hızı yetmedi! Plansız manevra fazladan yakıt tüketti (+85 kg Kütle Cezası, -%20 İniş)!"
+				note = "DELTA-V SAPMASI: Aviyonik eksikliği veya kütle marjı yetersizliği nedeniyle manevra fazladan yakıt tüketti (+85 kg Kütle Cezası, -%20 İniş)!"
 		"DUST_STORM_HIBERNATE":
 			var has_nuclear_or_heater: bool = has_installed_tag("nuclear_power") or has_installed_tag("thermal_survival") or String(current_mission.get("power_source_type", "")) == "mmrtg"
 			if has_nuclear_or_heater:
 				l_delta += 15
 				note = "KIŞ UYKUSU BAŞARILI: MMRTG / Termal Isıtıcı sayesinde toz fırtınası donma riski olmadan güvenle atlatıldı (+%15 İniş)!"
-			elif randf() < float(resolved_opt.get("chance_success", 0.50)):
+			elif net_power_w >= 40.0:
 				p_delta -= 15.0
 				l_delta += 5
-				note = "ŞANSLI UYANIŞ: MMRTG yoktu ancak fırtına dinince bataryalar sınırda da olsa yeniden canlandı (-15W Güç)."
+				note = "SINIRDA UYANIŞ: Isıtıcı yoktu ancak +40W üzeri güç rezervi sayesinde bataryalar donmadan atlatıldı (-15W Güç, +%5 İniş)."
 			else:
 				p_delta -= 60.0
 				l_delta -= 25
-				note = "DONMA HASARI: Araçta MMRTG / Isıtıcı olmadığı için kış uykusunda bataryalar soğuktan ağır güç kaybetti (-60W, -%25 İniş)!"
+				note = "DONMA HASARI: MMRTG/Isıtıcı ve +40W güç rezervi olmadığı için bataryalar soğuktan ağır güç kaybetti (-60W, -%25 İniş)!"
 		"DUST_STORM_SHAKE":
-			if randf() < float(resolved_opt.get("chance_success", 0.40)):
+			if net_power_w >= 50.0 and (has_installed_type("avionics") or has_installed_type("power")):
 				p_delta += 25.0
 				l_delta += 10
-				note = "PANELLER TEMİZLENDİ (%40 Şans Tuttu!): Robotik kol sarsıntısı ve rüzgar darbesiyle toz tabakası dağıldı (+25W, +%10 İniş)!"
+				note = "PANELLER TEMİZLENDİ: +50W güç rezervi ve kontrol sistemi sayesinde toz tabakası temizlendi (+25W, +%10 İniş)!"
 			else:
 				p_delta -= 75.0
 				l_delta -= 30
-				note = "BATARYA REZERVİ TÜKENDİ: Paneller temizlenemedi ve kol hareketi kritik batarya rezervini bitirdi (-75W, -%30 İniş)!"
+				note = "BATARYA REZERVİ TÜKENDİ: +50W güç rezervi veya kontrol modülü olmadığı için sarsıntı kritik bataryayı tüketti (-75W, -%30 İniş)!"
 		"HGA_LOW_GAIN_FALLBACK":
 			_quest_downlink_mult = 0.25
 		"HGA_THERMAL_SHOCK":
-			if randf() < float(resolved_opt.get("chance_success", 0.30)):
+			if net_power_w >= 35.0 and (has_installed_type("comms") or has_installed_type("survival")):
 				s_delta += 160
 				l_delta += 15
-				note = "ANTEN KURTULDU (%30 Galileo Termal Şoku Tuttu!): Güneş/gölge genleşmesiyle sıkışan ana anten açıldı (+160 Bilim, +%15 İniş)!"
+				note = "ANTEN KURTULDU: +35W güç rezervi ve iletişim/termal donanımıyla sıkışan anten açıldı (+160 Bilim, +%15 İniş)!"
 			else:
 				m_delta += 65.0
 				p_delta -= 25.0
 				l_delta -= 20
-				note = "YÖNELİM BOZULDU (%70 Risk): Anten kurtulmadı; dönüş manevrasında yönelim kontrolü bozuldu ve yakıt harcandı (+65 kg, -25W, -%20 İniş)!"
+				note = "YÖNELİM BOZULDU: +35W güç rezervi veya iletişim/termal modül eksikliğinden manevra yakıt harcadı (+65 kg, -25W, -%20 İniş)!"
 		"SEU_HARD_REBOOT":
-			if randf() < float(resolved_opt.get("chance_success", 0.55)):
+			if has_installed_type("avionics") and net_power_w >= 25.0:
 				p_delta -= 10.0
 				l_delta += 5
-				note = "HARD REBOOT BAŞARILI: Uçuş bilgisayarı yeniden başlatıldı ve yıldız izleyici sensörler yönelimi yakaladı (-10W, +%5 İniş)."
+				note = "HARD REBOOT BAŞARILI: Kurulu aviyonik ve +25W güç rezervi sayesinde bilgisayar güvenle yeniden başlatıldı (-10W, +%5 İniş)."
 			else:
 				p_delta -= 35.0
 				s_delta -= 70
 				l_delta -= 25
-				note = "TAKLA (TUMBLE) KRİZİ: Reboot sonrası uçuş parametreleri sıfırlandı ve araç takla atmaya başladı (-35W, -70 Bilim, -%25 İniş)!"
+				note = "TAKLA (TUMBLE) KRİZİ: Aviyonik veya +25W güç rezervi olmadığı için reboot sonrası yönelim kaybedildi (-35W, -70 Bilim, -%25 İniş)!"
 		"SEU_COLD_BACKUP":
 			if has_installed_type("avionics"):
 				l_delta += 20
 				s_delta += 50
 				note = "COLD-BACKUP DEVREDE: Kurulu aviyonik/yedek bilgisayar modülü devreye girdi; 1202 Alarmı hasarsız çözüldü (+%20 İniş, +50 Bilim)!"
-			elif budget_m >= 15.0:
-				b_delta -= 15.0
+			elif budget_m >= 20.0 and net_power_w >= 20.0:
+				b_delta -= 20.0
 				m_delta += 10.0
-				if randf() < 0.55:
-					l_delta += 10
-					note = "COLD-BACKUP ACİL YAMASI TUTTU: Yedek donanım yoktu ancak -$15M ve +10kg rezerv ile sistem kurtarıldı (+%10 İniş)."
-				else:
-					p_delta -= 45.0
-					l_delta -= 25
-					note = "COLD-BACKUP BAŞARISIZ (%45 Risk): Aviyonik modül olmadığı için -$15M harcanmasına rağmen yedek sistem senkronize olamadı (-45W, -%25 İniş)!"
+				l_delta += 5
+				note = "COLD-BACKUP ACİL KURTARMA: Aviyonik modül yoktu ancak $20M bütçe ve +20W güç rezerviyle yedek sistem devreye alındı (-$20M, +10kg, +%5 İniş)."
 			else:
 				p_delta -= 60.0
 				l_delta -= 35
-				note = "SİSTEM ÇÖKTÜ: Tasarımda yedek bilgisayar için aviyonik parça veya bütçe ayrılmadığı için Cold-Backup devreye giremedi (-60W, -%35 İniş)!"
+				note = "SİSTEM ÇÖKTÜ: Aviyonik modül veya $20M bütçe / +20W güç rezervi olmadığı için Cold-Backup devreye giremedi (-60W, -%35 İniş)!"
 
 	if not is_random_quest_budget_valid(opt):
 		EventBus.status_message.emit("BÜTÇE YETERSİZ! Bu işlem için yeterli bütçeniz yok (Mevcut: $%.0fM)." % budget_m, true)
@@ -918,6 +938,8 @@ func apply_side_quest_option(opt: Dictionary, quest_id: String = "") -> void:
 	_quest_power_delta += p_delta
 	_quest_landing_delta += l_delta
 	_quest_science_delta += s_delta
+	last_quest_landing_delta = l_delta
+	last_quest_is_negative = l_delta < 0 or (l_delta == 0 and (p_delta < 0.0 or s_delta < 0 or m_delta > 0.0))
 
 	if resolved_opt.has("set_launch_site"):
 		select_launch_site(String(resolved_opt["set_launch_site"]))
@@ -1091,9 +1113,9 @@ func get_effective_mass_kg() -> float:
 	return total_mass_kg + float(site_penalty.get("mass_penalty_kg", 0.0))
 
 func get_effective_mass_limit_kg() -> float:
-	var rocket_cap: float = float(selected_rocket.get("max_mass_kg", 999999.0))
-	var mission_cap: float = float(current_mission.get("max_mass_kg", 999999.0))
-	return min(rocket_cap, mission_cap)
+	if not selected_rocket.is_empty():
+		return float(selected_rocket.get("max_mass_kg", 999999.0))
+	return float(current_mission.get("max_mass_kg", 999999.0))
 
 func get_target_download_gb() -> float:
 	var mid: String = String(current_mission.get("id", ""))

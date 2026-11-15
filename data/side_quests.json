@@ -149,9 +149,8 @@
           "result_note": "Araç Safe Mode'a alındı; 3 gün boyunca bilim verisi toplanamadı (-80 Bilim) ancak tüm sistemler fırtınadan sağlam çıktı."
         },
         {
-          "label": "B) Gözleme Devam Et: Kameraları açık tutup patlamayı kaydet (%50 Tarihi Veri & Devasa Bilim / %50 İşlemci Kalıcı Hasar)",
+          "label": "B) Gözleme Devam Et: Kameraları açık tutup patlamayı kaydet (Radyasyon/Termal/Aviyonik modül ve +30W güç varsa +240 Bilim, yoksa kalıcı hasar)",
           "crisis_mechanic": "SOLAR_FLARE_GAMBLE",
-          "chance_success": 0.50,
           "budget_delta": 0,
           "mass_delta": 0,
           "power_delta": 0,
@@ -189,9 +188,8 @@
           "result_note": "Ana tank valfi kilitlendi ve yedek itki hattına geçildi; yakıtın tamamı korundu ancak manevra kabiliyeti azaldı."
         },
         {
-          "label": "B) Hızlı Yörünge Düzeltme: Yakıt bitmeden acil manevra ile hedef yörüngeye gir (Başarı şansı Navigasyon Bilgisayarına bağlı)",
+          "label": "B) Hızlı Yörünge Düzeltme: Yakıt bitmeden acil manevra ile hedef yörüngeye gir (Aviyonik/Navigasyon modülü ve +40kg kütle marjı varsa başarılı)",
           "crisis_mechanic": "MICROMETEOROID_BURN",
-          "chance_success": 0.45,
           "budget_delta": 0,
           "mass_delta": 0,
           "power_delta": 0,
@@ -212,9 +210,8 @@
       "description": "[Gerçek Referans: 2018 Opportunity & 2022 InSight Görev Sonu]\nDev bir toz/partikül fırtınası başladı; gökyüzü karardı ve güneş paneli verimi %90 düştü!",
       "options": [
         {
-          "label": "A) Kış Uykusu (Hibernation): Hareketi durdur, ısıtıcıları minimuma indir (MMRTG yoksa donma riski şansa kalır)",
+          "label": "A) Kış Uykusu (Hibernation): Hareketi durdur, ısıtıcıları minimuma indir (MMRTG/Termal modül veya +40W güç rezervi yoksa donma hasarı)",
           "crisis_mechanic": "DUST_STORM_HIBERNATE",
-          "chance_success": 0.50,
           "budget_delta": 0,
           "mass_delta": 0,
           "power_delta": 0,
@@ -222,9 +219,8 @@
           "result_note": "Kış uykusu (Hibernation) protokolü başlatıldı."
         },
         {
-          "label": "B) Pil Tüketerek Temizleme Denemesi: Robotik kolla panelleri sars / rüzgar pozisyonu al (Kritik batarya rezervi tükenir)",
+          "label": "B) Pil Tüketerek Temizleme Denemesi: Robotik kolla panelleri sars / rüzgar pozisyonu al (Güç/Aviyonik modülü ve +50W rezerv yoksa batarya tükenir)",
           "crisis_mechanic": "DUST_STORM_SHAKE",
-          "chance_success": 0.40,
           "budget_delta": 0,
           "mass_delta": 0,
           "power_delta": 0,
@@ -255,9 +251,8 @@
           "result_note": "Omnidirectional yedek antene geçildi; güvenli bağlantı sağlandı fakat bant genişliği düştüğü için yüksek çözünürlüklü fotoğraflar indirilemedi (-90 Bilim)."
         },
         {
-          "label": "B) Termal Şok Döngüsü (Galileo Yöntemi): Aracı Güneş/gölgeye döndürüp metalleri genleştir (%30 Anten Kurtulur / %70 Yönelim Bozulur)",
+          "label": "B) Termal Şok Döngüsü (Galileo Yöntemi): Aracı Güneş/gölgeye döndürüp metalleri genleştir (İletişim/Termal modül ve +35W güç varsa anten kurtulur, yoksa yönelim bozulur)",
           "crisis_mechanic": "HGA_THERMAL_SHOCK",
-          "chance_success": 0.30,
           "budget_delta": 0,
           "mass_delta": 0,
           "power_delta": 0,
@@ -286,9 +281,8 @@
       "description": "[Gerçek Referans: Apollo 11 '1202 Alarmı' & Kozmik Işın Bit-Flip (SEU)]\nKozmik bir ışın uçuş bilgisayarının RAM belleğinde bir biti tersine çevirdi (Bit-Flip) ve işlemci sonsuz döngüye girdi!",
       "options": [
         {
-          "label": "A) Sert Yeniden Başlatma (Hard Reboot): Bilgisayarı kapatıp aç (Parametreler sıfırlanır, araç takla/tumble atabilir)",
+          "label": "A) Sert Yeniden Başlatma (Hard Reboot): Bilgisayarı kapatıp aç (Aviyonik modül ve +25W güç varsa kurtarılır, yoksa takla/tumble krizi)",
           "crisis_mechanic": "SEU_HARD_REBOOT",
-          "chance_success": 0.55,
           "budget_delta": 0,
           "mass_delta": 0,
           "power_delta": 0,
