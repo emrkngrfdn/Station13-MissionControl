@@ -1,0 +1,57 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/side_quest_modal.gd" id="1_quest"]
+[ext_resource type="Theme" path="res://assets/pixel_ui_theme.tres" id="2_theme"]
+
+[node name="SideQuestModal" type="PanelContainer"]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -380.0
+offset_top = -200.0
+offset_right = 380.0
+offset_bottom = 200.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_quest")
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Header" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+
+[node name="QuestTitle" type="Label" parent="VBox/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.95, 0.72, 0.25, 1)
+text = "MÜHENDİSLİK KARARI"
+
+[node name="CloseBtn" type="Button" parent="VBox/Header"]
+layout_mode = 2
+text = "X"
+
+[node name="QuestDesc" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+text = "Açıklama"
+
+[node name="OptionsBox" type="VBoxContainer" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="QuestFeedback" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 0.95, 0.55, 1)
+
+[connection signal="pressed" from="VBox/Header/CloseBtn" to="." method="_on_close_pressed"]

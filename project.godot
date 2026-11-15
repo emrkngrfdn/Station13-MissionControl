@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Station13_MissionControl"
-run/main_scene="res://scenes/ui/lobby.tscn"
+run/main_scene="res://scenes/ui/main_menu.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
 
@@ -24,10 +24,8 @@ GameState="*res://autoloads/GameState.gd"
 
 [display]
 
-window/size/viewport_width=640
-window/size/viewport_height=360
-window/size/window_width_override=1280
-window/size/window_height_override=720
+window/size/viewport_width=1280
+window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 
 [physics]
@@ -36,6 +34,6 @@ window/stretch/mode="canvas_items"
 
 [rendering]
 
-textures/canvas_textures/default_texture_filter=0
+textures/canvas_textures/default_texture_filter=1
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="mobile"

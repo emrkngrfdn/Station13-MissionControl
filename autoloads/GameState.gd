@@ -7,6 +7,7 @@ var parts_data: Dictionary = {}
 var quests_data: Dictionary = {}
 
 # Lobi & Oyuncular (Max 4)
+var room_code: String = "JPL-01"
 var lobby_players: Array = [] # [{ "tag": "Commander#1042", "color": Color.CORAL, "is_host": true }]
 var is_solo: bool = true
 
@@ -54,10 +55,30 @@ func _load_json(path: String) -> Dictionary:
 	return parsed if parsed is Dictionary else {}
 
 func reset_lobby() -> void:
+	room_code = "JPL-%02d" % randi_range(10, 99)
 	lobby_players = [{ "tag": PlayerProfile.full_tag, "color": Color.CORAL, "is_host": true }]
 	is_solo = true
 	if missions_data.has("missions") and missions_data["missions"].size() > 0:
 		setup_mission(0, 0)
+
+func create_room() -> String:
+	reset_lobby()
+	return room_code
+
+func join_room(code: String, player_tag: String = "") -> bool:
+	var clean_code := code.strip_edges().to_upper()
+	if clean_code == "":
+		return false
+	reset_lobby()
+	room_code = clean_code
+	if player_tag.strip_edges() != "":
+		add_player_to_lobby(player_tag)
+	return true
+
+func set_host_color(new_color: Color) -> void:
+	if lobby_players.size() > 0:
+		lobby_players[0]["color"] = new_color
+		EventBus.lobby_updated.emit(lobby_players)
 
 func add_player_to_lobby(player_tag: String) -> bool:
 	if lobby_players.size() >= 4 or player_tag.strip_edges() == "":

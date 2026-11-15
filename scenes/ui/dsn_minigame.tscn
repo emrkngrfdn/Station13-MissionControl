@@ -1,0 +1,77 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/dsn_minigame.gd" id="1_dsn"]
+[ext_resource type="Theme" path="res://assets/pixel_ui_theme.tres" id="2_theme"]
+
+[node name="DSNMinigame" type="PanelContainer"]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -380.0
+offset_top = -185.0
+offset_right = 380.0
+offset_bottom = 185.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_dsn")
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Header" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.3, 0.85, 1.0, 1)
+text = "DSN DOWNLINK COMMS — DÜNYA VERİ İLETİMİ"
+
+[node name="CloseBtn" type="Button" parent="VBox/Header"]
+layout_mode = 2
+text = "X KAPAT"
+
+[node name="StationLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "YER İSTASYONU: GOLDSTONE (ABD)"
+
+[node name="DSNStatsLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "İNDİRİLEN: 0.0 GB | ANTEN HIZI: 0 Mbps"
+
+[node name="LockStatusLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+text = "SİNYAL KİLİTLENDİ"
+
+[node name="FreqSlider" type="HSlider" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 0.0
+max_value = 100.0
+value = 50.0
+
+[node name="Controls" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="LeftBtn" type="Button" parent="VBox/Controls"]
+layout_mode = 2
+text = "<< SOLA HİZALA"
+
+[node name="RightBtn" type="Button" parent="VBox/Controls"]
+layout_mode = 2
+text = "SAĞA HİZALA >>"
+
+[connection signal="pressed" from="VBox/Header/CloseBtn" to="." method="_on_close_pressed"]
+[connection signal="pressed" from="VBox/Controls/LeftBtn" to="." method="_on_left_pressed"]
+[connection signal="pressed" from="VBox/Controls/RightBtn" to="." method="_on_right_pressed"]

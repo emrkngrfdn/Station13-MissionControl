@@ -1,6 +1,6 @@
 extends CharacterBody2D
 
-@export var base_speed: float = 120.0
+@export var base_speed: float = 240.0
 
 var interactable_target: Node = null
 var carried_box: Node2D = null

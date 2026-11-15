@@ -6,6 +6,7 @@
 size = Vector2(14, 14)
 
 [node name="CargoBox" type="Area2D"]
+scale = Vector2(2, 2)
 script = ExtResource("1_box")
 
 [node name="BoxVisual" type="ColorRect" parent="."]

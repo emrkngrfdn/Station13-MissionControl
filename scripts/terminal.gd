@@ -4,8 +4,10 @@ enum TerminalType { BRIEFING, MARKET, ASSEMBLY, POWER_LAB, DSN_COMMS, LAUNCH }
 
 @export var terminal_type: TerminalType = TerminalType.MARKET
 @export var prompt_text: String = "[E] Etkileşim"
+@export var show_placeholder_visual: bool = true
 
 func _ready() -> void:
+	$ConsoleVisual.visible = show_placeholder_visual
 	$PromptLabel.text = prompt_text
 	$PromptLabel.visible = false
 	body_entered.connect(_on_body_entered)

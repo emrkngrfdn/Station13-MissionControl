@@ -1,0 +1,90 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/main_menu.gd" id="1_menu"]
+[ext_resource type="Theme" path="res://assets/pixel_ui_theme.tres" id="2_theme"]
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_menu")
+
+[node name="BG" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.04, 0.06, 0.1, 1)
+
+[node name="CenterBox" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MenuPanel" type="PanelContainer" parent="CenterBox"]
+custom_minimum_size = Vector2(540, 0)
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="CenterBox/MenuPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="CenterBox/MenuPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.35, 0.85, 1.0, 1)
+theme_override_font_sizes/font_size = 13
+text = "STATION 13: MISSION CONTROL"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="CenterBox/MenuPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.8, 0.88, 1)
+text = "NASA Space Apps — Piksel Uzay Görevi Tasarım Oyunu"
+horizontal_alignment = 1
+
+[node name="NicknameInput" type="LineEdit" parent="CenterBox/MenuPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Komutan Adın"
+
+[node name="CreateRoomBtn" type="Button" parent="CenterBox/MenuPanel/VBox"]
+layout_mode = 2
+text = "ODA OLUŞTUR (HOST)"
+
+[node name="JoinRow" type="HBoxContainer" parent="CenterBox/MenuPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="RoomCodeInput" type="LineEdit" parent="CenterBox/MenuPanel/VBox/JoinRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Oda Kodu (örn: JPL-42)"
+
+[node name="JoinBtn" type="Button" parent="CenterBox/MenuPanel/VBox/JoinRow"]
+layout_mode = 2
+text = "ODAYA KATIL"
+
+[node name="SoloBtn" type="Button" parent="CenterBox/MenuPanel/VBox"]
+layout_mode = 2
+text = "TEK KİŞİLİK HIZLI BAŞLA (SOLO)"
+
+[node name="MenuStatusLabel" type="Label" parent="CenterBox/MenuPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 0.95, 0.6, 1)
+text = "Profil: Commander"
+horizontal_alignment = 1
+
+[connection signal="pressed" from="CenterBox/MenuPanel/VBox/CreateRoomBtn" to="." method="_on_create_room_pressed"]
+[connection signal="pressed" from="CenterBox/MenuPanel/VBox/JoinRow/JoinBtn" to="." method="_on_join_room_pressed"]
+[connection signal="pressed" from="CenterBox/MenuPanel/VBox/SoloBtn" to="." method="_on_solo_quick_pressed"]
