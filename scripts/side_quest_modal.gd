@@ -636,6 +636,7 @@ func _on_orbit_lock_pressed() -> void:
 func _build_power_wiring_ui(prev_result: String, preserve_matched: bool = false) -> void:
 	_pending_result_msg = prev_result
 	_dragging_wire_id = -1
+	GameState.power_wiring_broken = true
 	if not preserve_matched:
 		_wire_fault_triggered = false
 		_matched_wires.clear()
@@ -776,6 +777,7 @@ func _on_wire_canvas_gui_input(event: InputEvent) -> void:
 								return
 							if _matched_wires.size() >= 4:
 								_wiring_done = true
+								GameState.power_wiring_broken = false
 								var wire_note: String = "Güç Lab sigorta ve bara kabloları eksiksiz bağlandı (+15 W güç verimi, +%5 iniş başarısı)!"
 								if not _wire_bonus_active:
 									_wire_bonus_active = true
@@ -822,6 +824,7 @@ func _trigger_background_wire_trip() -> void:
 		return
 	_bg_wire_trip_count += 1
 	_wiring_done = false
+	GameState.power_wiring_broken = true
 	var break_count: int = 1 if randf() < 0.65 else 2
 	break_count = mini(break_count, _matched_wires.size() - 1)
 	var candidates: Array[int] = _matched_wires.duplicate()

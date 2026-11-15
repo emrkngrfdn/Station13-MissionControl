@@ -89,6 +89,9 @@ func _on_terminal_opened(terminal_name: String) -> void:
 		if not GameState.is_power_lab_decided():
 			_show_status("FIRLATMA ENGELLENDİ: Önce Güç Laboratuvarı'ndan güç kaynağı kararını belirle!", true)
 			return
+		if GameState.power_wiring_broken:
+			_show_status("FIRLATMA ENGELLENDİ: Güç Laboratuvarı'nda kopan kabloları düzeltmeden fırlatma yapılamaz!", true)
+			return
 		get_tree().change_scene_to_file("res://scenes/world/landing_sim.tscn")
 
 func _on_interact_btn_pressed() -> void:

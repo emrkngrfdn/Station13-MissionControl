@@ -66,6 +66,7 @@ var ssd_used_gb: float = 0.0
 var ssd_capacity_gb: float = 64.0
 var dsn_locked: bool = false
 var briefing_completed: bool = false
+var power_wiring_broken: bool = false
 
 var purchased_parts: Array = []
 var installed_parts: Array = []
@@ -638,6 +639,7 @@ func setup_mission(mission_idx: int, modifier_idx: int, broadcast: bool = true) 
 	ssd_used_gb = 0.0
 	dsn_locked = false
 	briefing_completed = false
+	power_wiring_broken = false
 	recalculate()
 	if broadcast and is_network_active and multiplayer.is_server():
 		_broadcast_lobby_state()
@@ -1168,7 +1170,8 @@ func validate_launch() -> Dictionary:
 		power_cycling_enabled,
 		junocam_degraded,
 		is_power_lab_decided(),
-		briefing_completed
+		briefing_completed,
+		power_wiring_broken
 	)
 
 func complete_mission() -> Dictionary:
@@ -1190,7 +1193,8 @@ func complete_mission() -> Dictionary:
 		purchased_parts,
 		is_power_lab_decided(),
 		briefing_completed,
-		budget_m
+		budget_m,
+		power_wiring_broken
 	)
 	if bool(report.get("success", false)):
 		LeaderboardManager.add_record(

@@ -31,7 +31,8 @@ static func validate_build(
 	power_cycling_enabled: bool = false,
 	junocam_degraded: bool = false,
 	power_lab_decided: bool = true,
-	briefing_completed: bool = true
+	briefing_completed: bool = true,
+	power_wiring_broken: bool = false
 ) -> Dictionary:
 	var errors: Array[String] = []
 	var warnings: Array[String] = []
@@ -41,6 +42,9 @@ static func validate_build(
 
 	if not power_lab_decided:
 		errors.append("GÜÇ LAB KARARI EKSİK: Fırlatma öncesi Güç & Termal Lab terminalinden güç konfigürasyonunu seçin!")
+
+	if power_wiring_broken:
+		errors.append("GÜÇ LAB KABLOSU KOPUK: Güç Lab terminalinden kopan kabloları düzeltmeden fırlatma yapılamaz!")
 
 	var site_penalty: Dictionary = get_launch_site_penalty(mission, launch_site)
 	var effective_mass_kg: float = total_mass_kg + float(site_penalty.get("mass_penalty_kg", 0.0))
@@ -150,7 +154,8 @@ static func evaluate_mission_outcome(
 	purchased_parts: Array = [],
 	power_lab_decided: bool = true,
 	briefing_completed: bool = true,
-	budget_m: float = 0.0
+	budget_m: float = 0.0,
+	power_wiring_broken: bool = false
 ) -> Dictionary:
 	var build_check: Dictionary = validate_build(
 		mission,
@@ -162,7 +167,8 @@ static func evaluate_mission_outcome(
 		power_cycling_enabled,
 		junocam_degraded,
 		power_lab_decided,
-		briefing_completed
+		briefing_completed,
+		power_wiring_broken
 	)
 	var req_failures: Array[String] = evaluate_requirements(mission, installed_parts)
 
