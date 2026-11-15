@@ -11,20 +11,23 @@ config_version=5
 [application]
 
 config/name="Station13_MissionControl"
+run/main_scene="res://scenes/ui/lobby.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
 
 [autoload]
 
-EventBus="*uid://c5v74rqxoudm0"
-GameState="*uid://bgatg4g7coxor"
-LeaderboardManager="*uid://csrrluq0akovk"
-PlayerProfile="*uid://dk5j0gam5hm3c"
+EventBus="*res://autoloads/EventBus.gd"
+PlayerProfile="*res://autoloads/PlayerProfile.gd"
+LeaderboardManager="*res://autoloads/LeaderboardManager.gd"
+GameState="*res://autoloads/GameState.gd"
 
 [display]
 
 window/size/viewport_width=640
 window/size/viewport_height=360
+window/size/window_width_override=1280
+window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 
 [physics]

@@ -1,0 +1,213 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/station.gd" id="1_station"]
+[ext_resource type="PackedScene" path="res://scenes/entities/player.tscn" id="2_player"]
+[ext_resource type="PackedScene" path="res://scenes/entities/helper_drone.tscn" id="3_drone"]
+[ext_resource type="PackedScene" path="res://scenes/entities/terminal.tscn" id="4_terminal"]
+[ext_resource type="Theme" path="res://assets/pixel_ui_theme.tres" id="5_theme"]
+
+[sub_resource type="RectangleShape2D" id="WallH"]
+size = Vector2(640, 16)
+
+[sub_resource type="RectangleShape2D" id="WallV"]
+size = Vector2(16, 360)
+
+[node name="Station" type="Node2D"]
+script = ExtResource("1_station")
+
+[node name="FloorBG" type="ColorRect" parent="."]
+offset_right = 640.0
+offset_bottom = 360.0
+color = Color(0.08, 0.1, 0.14, 1)
+
+[node name="Rooms" type="Node2D" parent="."]
+
+[node name="BriefingRoom" type="ColorRect" parent="Rooms"]
+offset_left = 16.0
+offset_top = 36.0
+offset_right = 212.0
+offset_bottom = 184.0
+color = Color(0.13, 0.17, 0.24, 1)
+
+[node name="Label" type="Label" parent="Rooms/BriefingRoom"]
+offset_left = 6.0
+offset_top = 4.0
+offset_right = 150.0
+offset_bottom = 22.0
+text = "1. BRİFİNG ODASI"
+
+[node name="AssemblyRoom" type="ColorRect" parent="Rooms"]
+offset_left = 222.0
+offset_top = 36.0
+offset_right = 418.0
+offset_bottom = 184.0
+color = Color(0.16, 0.18, 0.22, 1)
+
+[node name="Label" type="Label" parent="Rooms/AssemblyRoom"]
+offset_left = 6.0
+offset_top = 4.0
+offset_right = 170.0
+offset_bottom = 22.0
+text = "2. MONTAJ HANGARI"
+
+[node name="PowerLabRoom" type="ColorRect" parent="Rooms"]
+offset_left = 428.0
+offset_top = 36.0
+offset_right = 624.0
+offset_bottom = 184.0
+color = Color(0.18, 0.15, 0.22, 1)
+
+[node name="Label" type="Label" parent="Rooms/PowerLabRoom"]
+offset_left = 6.0
+offset_top = 4.0
+offset_right = 180.0
+offset_bottom = 22.0
+text = "3. GÜÇ & TERMAL LAB"
+
+[node name="MarketRoom" type="ColorRect" parent="Rooms"]
+offset_left = 16.0
+offset_top = 194.0
+offset_right = 212.0
+offset_bottom = 334.0
+color = Color(0.14, 0.2, 0.18, 1)
+
+[node name="Label" type="Label" parent="Rooms/MarketRoom"]
+offset_left = 6.0
+offset_top = 4.0
+offset_right = 180.0
+offset_bottom = 22.0
+text = "4. TEDARİK MAĞAZASI"
+
+[node name="DSNRoom" type="ColorRect" parent="Rooms"]
+offset_left = 222.0
+offset_top = 194.0
+offset_right = 418.0
+offset_bottom = 334.0
+color = Color(0.12, 0.19, 0.24, 1)
+
+[node name="Label" type="Label" parent="Rooms/DSNRoom"]
+offset_left = 6.0
+offset_top = 4.0
+offset_right = 180.0
+offset_bottom = 22.0
+text = "5. DSN HABERLEŞME"
+
+[node name="LaunchRoom" type="ColorRect" parent="Rooms"]
+offset_left = 428.0
+offset_top = 194.0
+offset_right = 624.0
+offset_bottom = 334.0
+color = Color(0.22, 0.14, 0.14, 1)
+
+[node name="Label" type="Label" parent="Rooms/LaunchRoom"]
+offset_left = 6.0
+offset_top = 4.0
+offset_right = 180.0
+offset_bottom = 22.0
+text = "6. FIRLATMA GÜVERTESİ"
+
+[node name="Bounds" type="StaticBody2D" parent="."]
+
+[node name="TopWall" type="CollisionShape2D" parent="Bounds"]
+position = Vector2(320, 26)
+shape = SubResource("WallH")
+
+[node name="BottomWall" type="CollisionShape2D" parent="Bounds"]
+position = Vector2(320, 344)
+shape = SubResource("WallH")
+
+[node name="LeftWall" type="CollisionShape2D" parent="Bounds"]
+position = Vector2(8, 180)
+shape = SubResource("WallV")
+
+[node name="RightWall" type="CollisionShape2D" parent="Bounds"]
+position = Vector2(632, 180)
+shape = SubResource("WallV")
+
+[node name="Terminals" type="Node2D" parent="."]
+
+[node name="BriefingTerminal" parent="Terminals" instance=ExtResource("4_terminal")]
+position = Vector2(114, 110)
+terminal_type = 0
+prompt_text = "[E] Brifing"
+
+[node name="AssemblyTerminal" parent="Terminals" instance=ExtResource("4_terminal")]
+position = Vector2(320, 110)
+terminal_type = 2
+prompt_text = "[E] Monte Et"
+
+[node name="PowerLabTerminal" parent="Terminals" instance=ExtResource("4_terminal")]
+position = Vector2(526, 110)
+terminal_type = 3
+prompt_text = "[E] Güç Lab"
+
+[node name="MarketTerminal" parent="Terminals" instance=ExtResource("4_terminal")]
+position = Vector2(114, 264)
+terminal_type = 1
+prompt_text = "[E] Mağaza"
+
+[node name="DSNTerminal" parent="Terminals" instance=ExtResource("4_terminal")]
+position = Vector2(320, 264)
+terminal_type = 4
+prompt_text = "[E] DSN Kulesi"
+
+[node name="LaunchTerminal" parent="Terminals" instance=ExtResource("4_terminal")]
+position = Vector2(526, 264)
+terminal_type = 5
+prompt_text = "[E] Fırlat"
+
+[node name="ConveyorSpawnPoint" type="Marker2D" parent="."]
+position = Vector2(170, 264)
+
+[node name="Player" parent="." instance=ExtResource("2_player")]
+position = Vector2(320, 155)
+
+[node name="HelperDrone" parent="." instance=ExtResource("3_drone")]
+position = Vector2(290, 155)
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="TopBar" type="PanelContainer" parent="HUD"]
+offset_right = 640.0
+offset_bottom = 28.0
+theme = ExtResource("5_theme")
+
+[node name="HBox" type="HBoxContainer" parent="HUD/TopBar"]
+layout_mode = 2
+theme_override_constants/separation = 14
+alignment = 1
+
+[node name="BudgetLabel" type="Label" parent="HUD/TopBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "BÜTÇE: $180M"
+
+[node name="MassLabel" type="Label" parent="HUD/TopBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "KÜTLE: 1800/3117 kg"
+
+[node name="PowerLabel" type="Label" parent="HUD/TopBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "GÜÇ: +4444 W"
+
+[node name="LandingLabel" type="Label" parent="HUD/TopBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "İNİŞ: %40"
+
+[node name="TimerLabel" type="Label" parent="HUD/TopBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "SÜRE: 00:00"
+
+[node name="StatusLabel" type="Label" parent="HUD"]
+unique_name_in_owner = true
+offset_left = 10.0
+offset_top = 338.0
+offset_right = 630.0
+offset_bottom = 358.0
+theme = ExtResource("5_theme")
+text = "Durum: Hazır"
+horizontal_alignment = 1

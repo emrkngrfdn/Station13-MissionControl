@@ -1,0 +1,28 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/terminal.gd" id="1_terminal"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_terminal"]
+radius = 22.0
+
+[node name="Terminal" type="Area2D"]
+script = ExtResource("1_terminal")
+
+[node name="ConsoleVisual" type="ColorRect" parent="."]
+offset_left = -12.0
+offset_top = -12.0
+offset_right = 12.0
+offset_bottom = 12.0
+color = Color(0.18, 0.35, 0.28, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_terminal")
+
+[node name="PromptLabel" type="Label" parent="."]
+visible = false
+offset_left = -40.0
+offset_top = -28.0
+offset_right = 40.0
+offset_bottom = -12.0
+horizontal_alignment = 1
+text = "[E] Etkileşim"
