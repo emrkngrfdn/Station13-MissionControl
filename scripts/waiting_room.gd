@@ -2,12 +2,21 @@ extends Node2D
 
 const ASTRONAUT_SHEET: Texture2D = preload("res://assets/astronaut_sheet.png")
 const HUD_PLAYERS_SHEET: Texture2D = preload("res://assets/ui/hud_players_sheet.png")
+const SETTINGS_COLORS_BAR: Texture2D = preload("res://assets/ui/settings_colors_bar.png")
+const SETTINGS_PANEL_SHEET: Texture2D = preload("res://assets/ui/settings_panel_sheet.png")
 
 const HELMET_REGIONS: Array[Rect2] = [
 	Rect2(8, 62, 19, 19),  # Kırmızı
 	Rect2(56, 62, 19, 19), # Mavi
 	Rect2(32, 62, 19, 19), # Sarı
 	Rect2(80, 62, 19, 19)  # Yeşil
+]
+
+const DIGIT_REGIONS: Array[Rect2] = [
+	Rect2(116, 6, 5, 12),  # 1
+	Rect2(114, 23, 9, 12), # 2
+	Rect2(114, 42, 9, 12), # 3
+	Rect2(113, 61, 10, 12) # 4
 ]
 
 const CREW_POSITIONS: Array[Vector2] = [
@@ -25,29 +34,48 @@ const SUIT_COLORS: Array[Color] = [
 
 @onready var room_info_label: Label = %RoomInfoLabel
 @onready var mission_summary_label: Label = %MissionSummaryLabel
-@onready var player_count_label: Label = %PlayerCountLabel
+@onready var player_count_icon: TextureRect = %PlayerCountIcon
 @onready var helmet_slots: Control = %HelmetSlots
-@onready var settings_panel: PanelContainer = %HostSettingsPanel
+@onready var settings_backdrop: ColorRect = %SettingsBackdrop
+@onready var settings_panel: Control = %HostSettingsPanel
+@onready var host_lock_badge: Label = %HostLockBadge
 @onready var mission_option: OptionButton = %MissionOption
 @onready var modifier_option: OptionButton = %ModifierOption
 @onready var launch_site_option: OptionButton = %LaunchSiteOption
 @onready var mission_desc: Label = %MissionDesc
+@onready var color_row: Control = %ColorRow
+@onready var public_btn: TextureButton = %PublicBtn
+@onready var private_btn: TextureButton = %PrivateBtn
 @onready var add_player_input: LineEdit = %AddPlayerInput
+@onready var add_btn: Button = %AddBtn
 @onready var leaderboard_list: VBoxContainer = %LeaderboardList
 @onready var crew_dummies: Node2D = $CrewDummies
 @onready var player: CharacterBody2D = $Player
 @onready var back_btn: TextureButton = $HUD/BottomBar/BackBtn
 @onready var start_btn: TextureButton = $HUD/BottomBar/StartBtn
+@onready var close_btn: TextureButton = $HUD/HostSettingsPanel/CloseBtn
 
 func _ready() -> void:
-	settings_panel.visible = false
+	_set_settings_open(false)
 	_setup_texture_button(back_btn)
 	_setup_texture_button(start_btn)
+	_setup_texture_button(close_btn)
+	_setup_texture_button(public_btn)
+	_setup_texture_button(private_btn)
+	for c_btn in color_row.get_children():
+		if c_btn is TextureButton:
+			c_btn.pivot_offset = c_btn.size * 0.5
+	var empty_img := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+	var empty_tex := ImageTexture.create_from_image(empty_img)
+	for opt in [mission_option, modifier_option, launch_site_option]:
+		opt.add_theme_icon_override("arrow", empty_tex)
 	_populate_selectors()
 	EventBus.lobby_updated.connect(_on_lobby_updated)
 	EventBus.telemetry_changed.connect(_refresh_top_bar)
 	EventBus.terminal_opened.connect(_on_terminal_opened)
 	_on_lobby_updated(GameState.lobby_players)
+	_refresh_room_type_buttons()
+	_refresh_host_permissions()
 	_refresh_top_bar()
 	_refresh_leaderboard()
 
@@ -89,7 +117,11 @@ func _populate_selectors() -> void:
 
 func _on_terminal_opened(terminal_name: String) -> void:
 	if terminal_name == "BRIEFING":
-		settings_panel.visible = not settings_panel.visible
+		_set_settings_open(not settings_panel.visible)
+
+func _set_settings_open(is_open: bool) -> void:
+	settings_panel.visible = is_open
+	settings_backdrop.visible = is_open
 
 func _on_lobby_updated(players: Array) -> void:
 	for child in crew_dummies.get_children():
@@ -123,10 +155,92 @@ func _on_lobby_updated(players: Array) -> void:
 		crew_dummies.add_child(dummy)
 
 	_refresh_helmet_slots(players)
+	_refresh_color_buttons(players)
+	_refresh_host_permissions()
 	_refresh_top_bar()
 
+func _refresh_color_buttons(players: Array) -> void:
+	var my_idx: int = 0
+	if GameState.is_room_open and not GameState.is_room_host:
+		for i in range(players.size()):
+			if String(players[i].get("tag", "")) == PlayerProfile.full_tag:
+				my_idx = i
+				break
+
+	var my_color_idx: int = -1
+	var taken: Array[bool] = [false, false, false, false]
+	for i in range(players.size()):
+		var c: Color = players[i].get("color", SUIT_COLORS[i % SUIT_COLORS.size()])
+		var c_idx: int = _color_to_helmet_idx(c)
+		if i == my_idx:
+			my_color_idx = c_idx
+		else:
+			taken[c_idx] = true
+
+	var btns := color_row.get_children()
+	for idx in range(btns.size()):
+		var btn := btns[idx] as TextureButton
+		if btn == null:
+			continue
+		if taken[idx]:
+			btn.disabled = true
+			btn.position.y = 3.0
+			btn.scale = Vector2(0.94, 0.94)
+			btn.modulate = Color(0.42, 0.44, 0.5, 0.65)
+			btn.mouse_default_cursor_shape = Control.CURSOR_FORBIDDEN
+		elif idx == my_color_idx:
+			btn.disabled = false
+			btn.position.y = -3.0
+			btn.scale = Vector2(1.05, 1.05)
+			btn.modulate = Color(1.18, 1.18, 1.18, 1.0)
+			btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		else:
+			btn.disabled = false
+			btn.position.y = 0.0
+			btn.scale = Vector2.ONE
+			btn.modulate = Color(0.92, 0.94, 0.98, 1.0)
+			btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+
+func _refresh_room_type_buttons() -> void:
+	var pub_atlas := AtlasTexture.new()
+	pub_atlas.atlas = SETTINGS_PANEL_SHEET
+	pub_atlas.region = Rect2(283, 7, 127, 32) if GameState.is_room_public else Rect2(16, 7, 125, 32)
+	public_btn.texture_normal = pub_atlas
+
+	var priv_atlas := AtlasTexture.new()
+	priv_atlas.atlas = SETTINGS_PANEL_SHEET
+	priv_atlas.region = Rect2(413, 9, 124, 30) if GameState.is_room_public else Rect2(142, 7, 130, 32)
+	private_btn.texture_normal = priv_atlas
+
+func _refresh_host_permissions() -> void:
+	var can_edit: bool = (not GameState.is_room_open) or GameState.is_room_host
+	host_lock_badge.visible = not can_edit
+	mission_option.disabled = not can_edit
+	modifier_option.disabled = not can_edit
+	launch_site_option.disabled = not can_edit
+	public_btn.disabled = not can_edit
+	private_btn.disabled = not can_edit
+	add_player_input.editable = can_edit
+	add_btn.disabled = not can_edit
+	start_btn.disabled = not can_edit
+
+	var dim: Color = Color.WHITE if can_edit else Color(0.58, 0.62, 0.68, 0.8)
+	mission_option.modulate = dim
+	modifier_option.modulate = dim
+	launch_site_option.modulate = dim
+	public_btn.modulate = dim
+	private_btn.modulate = dim
+	add_player_input.modulate = dim
+	add_btn.modulate = dim
+	start_btn.modulate = dim if can_edit else Color(0.5, 0.52, 0.58, 0.7)
+
 func _refresh_helmet_slots(players: Array) -> void:
-	player_count_label.text = str(players.size())
+	var count_idx: int = clampi(players.size(), 1, 4) - 1
+	var digit_atlas := AtlasTexture.new()
+	digit_atlas.atlas = HUD_PLAYERS_SHEET
+	digit_atlas.region = DIGIT_REGIONS[count_idx]
+	player_count_icon.texture = digit_atlas
+
 	var slots := helmet_slots.get_children()
 	for i in range(slots.size()):
 		var slot := slots[i] as TextureRect
@@ -172,29 +286,54 @@ func _refresh_leaderboard() -> void:
 	var count := 0
 	for rec in LeaderboardManager.records:
 		if rec.get("mission_id", "") == current_id:
+			var bar := TextureRect.new()
+			bar.custom_minimum_size = Vector2(236, 24)
+			var bar_atlas := AtlasTexture.new()
+			bar_atlas.atlas = SETTINGS_COLORS_BAR
+			bar_atlas.region = Rect2(0, 65, 267, 32)
+			bar.texture = bar_atlas
+			bar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+
 			var lbl := Label.new()
+			lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+			lbl.offset_left = 8
+			lbl.offset_right = -8
+			lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			lbl.add_theme_font_size_override("font_size", 8)
+			lbl.add_theme_color_override("font_color", Color(0.88, 0.96, 1.0, 1.0))
 			lbl.text = "%s — %.1fs | Skor: %d" % [
 				rec.get("team", ""),
 				float(rec.get("time_sec", 0.0)),
 				int(rec.get("score", 0))
 			]
-			leaderboard_list.add_child(lbl)
+			lbl.clip_text = true
+			bar.add_child(lbl)
+			leaderboard_list.add_child(bar)
 			count += 1
+			if count >= 2:
+				break
 	if count == 0:
 		var empty_lbl := Label.new()
 		empty_lbl.text = "Bu görevde henüz rekor yok."
+		empty_lbl.add_theme_font_size_override("font_size", 8)
 		empty_lbl.modulate = Color(0.6, 0.65, 0.72)
 		leaderboard_list.add_child(empty_lbl)
 
 func _on_mission_selected(_idx: int) -> void:
+	if GameState.is_room_open and not GameState.is_room_host:
+		return
 	GameState.setup_mission(mission_option.selected, modifier_option.selected)
 	_sync_launch_site_dropdown()
 	_refresh_leaderboard()
 
 func _on_modifier_selected(_idx: int) -> void:
+	if GameState.is_room_open and not GameState.is_room_host:
+		return
 	GameState.setup_mission(mission_option.selected, modifier_option.selected)
 
 func _on_launch_site_selected(idx: int) -> void:
+	if GameState.is_room_open and not GameState.is_room_host:
+		return
 	var sites: Array = GameState.missions_data.get("launch_sites", [])
 	if idx >= 0 and idx < sites.size():
 		GameState.select_launch_site(sites[idx].get("id", ""))
@@ -208,22 +347,38 @@ func _sync_launch_site_dropdown() -> void:
 			break
 
 func _on_add_player_pressed() -> void:
+	if GameState.is_room_open and not GameState.is_room_host:
+		return
 	if GameState.add_player_to_lobby(add_player_input.text):
 		add_player_input.text = ""
 
 func _on_color_btn_pressed(idx: int) -> void:
-	GameState.set_host_color(SUIT_COLORS[idx % SUIT_COLORS.size()])
+	GameState.set_my_color(SUIT_COLORS[idx % SUIT_COLORS.size()])
+
+func _on_public_btn_pressed() -> void:
+	if GameState.is_room_open and not GameState.is_room_host:
+		return
+	GameState.set_room_public(true)
+	_refresh_room_type_buttons()
+
+func _on_private_btn_pressed() -> void:
+	if GameState.is_room_open and not GameState.is_room_host:
+		return
+	GameState.set_room_public(false)
+	_refresh_room_type_buttons()
 
 func _on_toggle_settings_pressed() -> void:
-	settings_panel.visible = not settings_panel.visible
+	_set_settings_open(not settings_panel.visible)
 
 func _on_close_settings_pressed() -> void:
-	settings_panel.visible = false
+	_set_settings_open(false)
 
 func _on_back_menu_pressed() -> void:
 	GameState.leave_room()
 	get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
 
 func _on_start_mission_pressed() -> void:
+	if GameState.is_room_open and not GameState.is_room_host:
+		return
 	GameState.start_mission()
 	get_tree().change_scene_to_file("res://scenes/world/station.tscn")

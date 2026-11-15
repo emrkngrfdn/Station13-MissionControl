@@ -1,9 +1,26 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/cargo_box.gd" id="1_box"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_box"]
 size = Vector2(14, 14)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_box_lbl"]
+content_margin_left = 4.0
+content_margin_top = 1.0
+content_margin_right = 4.0
+content_margin_bottom = 2.0
+bg_color = Color(0.06, 0.08, 0.12, 0.9)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.95, 0.76, 0.28, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+anti_aliasing = false
 
 [node name="CargoBox" type="Area2D"]
 script = ExtResource("1_box")
@@ -21,9 +38,16 @@ shape = SubResource("RectangleShape2D_box")
 [node name="Label" type="Label" parent="."]
 z_index = 20
 z_as_relative = false
-offset_left = -24.0
-offset_top = -20.0
-offset_right = 24.0
-offset_bottom = -6.0
-horizontal_alignment = 1
+offset_left = -28.0
+offset_top = -22.0
+offset_right = 28.0
+offset_bottom = -8.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(1, 0.95, 0.72, 1)
+theme_override_colors/font_outline_color = Color(0.04, 0.06, 0.1, 1)
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_box_lbl")
 text = "Kargo"
+horizontal_alignment = 1
+vertical_alignment = 1
