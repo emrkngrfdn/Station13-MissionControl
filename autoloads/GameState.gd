@@ -404,17 +404,28 @@ func join_room(code: String, player_tag: String = "") -> bool:
 	last_join_error = ""
 	return true
 
-func set_room_public(val: bool) -> void:
-	if is_room_open and not is_room_host:
-		return
-	is_room_public = val
-	if is_room_open and is_room_host and room_code != "":
-		_save_active_room_entry()
-
 func set_host_color(new_color: Color) -> void:
-	if lobby_players.size() > 0:
-		lobby_players[0]["color"] = new_color
-		_broadcast_lobby_state()
+	set_my_color(new_color)
+
+func set_my_color(new_color: Color) -> void:
+	var my_idx: int = 0
+	if is_room_open and not is_room_host:
+		for i in range(lobby_players.size()):
+			if String(lobby_players[i].get("tag", "")) == PlayerProfile.full_tag:
+				my_idx = i
+				break
+	for i in range(lobby_players.size()):
+		if i == my_idx:
+			continue
+		var other_c: Color = lobby_players[i].get("color", Color.BLACK)
+		if other_c.is_equal_approx(new_color):
+			return
+	if my_idx >= 0 and my_idx < lobby_players.size():
+		lobby_players[my_idx]["color"] = new_color
+		if is_room_open and is_room_host:
+			_broadcast_lobby_state()
+		else:
+			EventBus.lobby_updated.emit(lobby_players)
 
 func _pick_distinct_color(ignore_idx: int = -1) -> Color:
 	for candidate in SLOT_COLORS:
