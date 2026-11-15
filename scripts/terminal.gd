@@ -35,7 +35,7 @@ func _try_install_carried_box() -> void:
 	for p in players:
 		if p.interactable_target == self and p.carried_box != null:
 			var box: Node2D = p.carried_box
-			GameState.install_part(box.part_data)
-			p.carried_box = null
-			box.queue_free()
+			if GameState.install_part(box.part_data):
+				p.carried_box = null
+				box.queue_free()
 			break

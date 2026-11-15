@@ -10,3 +10,7 @@ signal mission_completed(success: bool, report: Dictionary)
 signal terminal_opened(terminal_name: String)
 signal launch_site_changed(site_data: Dictionary)
 signal rocket_changed(rocket_data: Dictionary)
+signal network_status_changed(status_text: String, is_online: bool)
+signal crisis_alert(crisis_code: String)
+signal status_message(msg: String, is_error: bool)
+

@@ -19,11 +19,15 @@ func _on_create_room_pressed() -> void:
 
 func _on_join_room_pressed() -> void:
 	_apply_nickname()
-	var code := room_code_input.text.strip_edges()
+	var code: String = room_code_input.text.strip_edges()
 	if code == "":
 		status_label.text = "Lütfen bir Oda Kodu girin (örn: JPL-42)!"
+		status_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.35))
 		return
-	GameState.join_room(code)
+	if not GameState.join_room(code):
+		status_label.text = GameState.last_join_error
+		status_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.35))
+		return
 	get_tree().change_scene_to_file("res://scenes/world/waiting_room.tscn")
 
 func _on_solo_quick_pressed() -> void:
