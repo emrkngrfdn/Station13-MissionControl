@@ -1,10 +1,38 @@
 {
   "side_quests": [
     {
+      "id": "launch_site_choice",
+      "title": "Fırlatma Üssü & Yörünge Eğikliği Seçimi",
+      "mission_ids": ["leo_climate_aqua"],
+      "room": "LAUNCH",
+      "description": "Güneş eşzamanlı kutup yörüngesi (LEO İklim) için hangi fırlatma üssünü kullanacaksınız?",
+      "options": [
+        {
+          "label": "A) Vandenberg AFB (Kaliforniya) — Tam Uyum ($0)",
+          "budget_delta": 0,
+          "mass_delta": 0,
+          "power_delta": 0,
+          "landing_chance_delta": 15,
+          "set_launch_site": "vandenberg_afb",
+          "result_note": "Vandenberg kutup yörüngesi için idealdir; yakıt cezası olmadan tam puan!"
+        },
+        {
+          "label": "B) Cape Canaveral (Florida) — Eğiklik Cezası (+350 kg)",
+          "budget_delta": -25,
+          "mass_delta": 350,
+          "power_delta": 0,
+          "landing_chance_delta": -15,
+          "set_launch_site": "cape_canaveral",
+          "result_note": "Florida'dan kutup yörüngesine çıkmak için +350 kg ek yakıt ve -$25M maliyet gerekti!"
+        }
+      ]
+    },
+    {
       "id": "solar_deployment",
       "title": "Güneş Paneli Açılım & Güç Konfigürasyonu",
+      "mission_ids": ["leo_climate_aqua", "lunar_pole_lro", "europa_juno"],
       "room": "POWER_LAB",
-      "description": "Yörünge ve iniş sırasında güneş açısı değişecek. Mühendislik ekibi nasıl bir kurulum yapmalı?",
+      "description": "Yörünge ve tutulma (eclipse) sırasında güneş açısı değişecek. Mühendislik ekibi nasıl bir kurulum yapmalı?",
       "options": [
         {
           "label": "A) Sabit Hafif Panel Kur (+$10M Tasarruf)",
@@ -12,7 +40,7 @@
           "mass_delta": 5,
           "power_delta": -30,
           "landing_chance_delta": -15,
-          "result_note": "Bütçe korundu ama gölge geçişinde güç düştüğü için iniş riski arttı."
+          "result_note": "Bütçe korundu ama gölge geçişinde güç düştüğü için risk arttı."
         },
         {
           "label": "B) Çift Eksenli Takip Mekanizması (-$25M, +20kg)",
@@ -34,8 +62,35 @@
       ]
     },
     {
+      "id": "mars_power_cycling",
+      "title": "Mars 110 W Güç Döngüsü (Power Cycling)",
+      "mission_ids": ["mars_perseverance"],
+      "room": "POWER_LAB",
+      "description": "MMRTG yalnızca 110 W sabit güç üretiyor. Tüm cihazlar aynı anda çalışamaz (MOXIE anlık 300 W ister). Güç yönetimi nasıl yapılacak?",
+      "options": [
+        {
+          "label": "A) Lityum-İyon Batarya Tamponu + Sıralı Çalıştırma (-$20M, +12kg)",
+          "budget_delta": -20,
+          "mass_delta": 12,
+          "power_delta": 25,
+          "landing_chance_delta": 20,
+          "result_note": "Bataryalar tam şarj edilip cihazlar sırayla çalıştırıldı; MOXIE tepe yükü güvenle karşılandı."
+        },
+        {
+          "label": "B) Tüm Cihazları Aynı Anda Çalıştır ($0)",
+          "budget_delta": 0,
+          "mass_delta": 0,
+          "power_delta": -50,
+          "landing_chance_delta": -30,
+          "triggers_crisis": "POWER_BROWNOUT",
+          "result_note": "Anlık güç aşımı (Brownout)! Sistem güvenli moda düştü ve bilim süresi kaybedildi."
+        }
+      ]
+    },
+    {
       "id": "edl_guidance",
       "title": "Atmosferik Giriş & İniş Yazılımı (EDL)",
+      "mission_ids": ["all"],
       "room": "DSN_COMMS",
       "description": "Hedef yüzeye iniş sırasında iletişim gecikmesi yaşanacak. İniş kontrolü nasıl yönetilsin?",
       "options": [
