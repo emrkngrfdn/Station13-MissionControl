@@ -1,0 +1,41 @@
+{
+  "missions": [
+    {
+      "id": "lunar_south_pole",
+      "name": "Ay Güney Kutbu İniş Aracı",
+      "difficulty": "Kolay",
+      "base_budget_m": 160,
+      "solar_efficiency": 1.0,
+      "radiation_level": "Medium",
+      "target_science": 700,
+      "landing_gravity": 1.62,
+      "description": "Krater gölgelerinde termal ısıtma ve hassas iniş radarı gerektiren kutup görevi."
+    },
+    {
+      "id": "mars_jezero",
+      "name": "Mars Jezero Yüzey & Yörünge",
+      "difficulty": "Orta",
+      "base_budget_m": 280,
+      "solar_efficiency": 0.43,
+      "radiation_level": "High",
+      "target_science": 1100,
+      "landing_gravity": 3.71,
+      "description": "Güneş enerjisi %43'e düşer. İnce atmosferde paraşüt + frenleme iticisi dengesi şarttır."
+    },
+    {
+      "id": "europa_lander",
+      "name": "Europa Buz Altı Sondası",
+      "difficulty": "Zor",
+      "base_budget_m": 420,
+      "solar_efficiency": 0.037,
+      "radiation_level": "Extreme",
+      "target_science": 1600,
+      "landing_gravity": 1.31,
+      "description": "5.2 AU mesafede güneş paneli yetmez; MMRTG nükleer pil ve yüksek bantlı anten zorunludur."
+    }
+  ],
+  "budget_modifiers": [
+    { "id": "standard", "name": "Standart NASA Fonu", "budget_mult": 1.0, "score_mult": 1.0 },
+    { "id": "tight_grant", "name": "Sıkı Keşif Hibesi (-%30 Bütçe)", "budget_mult": 0.7, "score_mult": 1.5 }
+  ]
+}

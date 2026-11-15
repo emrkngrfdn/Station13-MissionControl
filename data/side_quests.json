@@ -1,0 +1,62 @@
+{
+  "side_quests": [
+    {
+      "id": "solar_deployment",
+      "title": "Güneş Paneli Açılım & Güç Konfigürasyonu",
+      "room": "POWER_LAB",
+      "description": "Yörünge ve iniş sırasında güneş açısı değişecek. Mühendislik ekibi nasıl bir kurulum yapmalı?",
+      "options": [
+        {
+          "label": "A) Sabit Hafif Panel Kur (+$10M Tasarruf)",
+          "budget_delta": 10,
+          "mass_delta": 5,
+          "power_delta": -30,
+          "landing_chance_delta": -15,
+          "result_note": "Bütçe korundu ama gölge geçişinde güç düştüğü için iniş riski arttı."
+        },
+        {
+          "label": "B) Çift Eksenli Takip Mekanizması (-$25M, +20kg)",
+          "budget_delta": -25,
+          "mass_delta": 20,
+          "power_delta": 60,
+          "landing_chance_delta": 20,
+          "result_note": "Kesintisiz güç sağlandı ancak kütle ve maliyet arttı."
+        },
+        {
+          "label": "C) Mevcut Sisteme Yüksek Akım Overclock ($0)",
+          "budget_delta": 0,
+          "mass_delta": 0,
+          "power_delta": 40,
+          "landing_chance_delta": -5,
+          "triggers_crisis": "OVERHEAT",
+          "result_note": "Ekstra güç üretildi fakat Power Lab odasında soğutma alarmı tetiklendi!"
+        }
+      ]
+    },
+    {
+      "id": "edl_guidance",
+      "title": "Atmosferik Giriş & İniş Yazılımı (EDL)",
+      "room": "DSN_COMMS",
+      "description": "Hedef yüzeye iniş sırasında iletişim gecikmesi yaşanacak. İniş kontrolü nasıl yönetilsin?",
+      "options": [
+        {
+          "label": "A) Otonom Yapay Zeka İniş Modülü Al (-$30M)",
+          "budget_delta": -30,
+          "mass_delta": 10,
+          "power_delta": -15,
+          "landing_chance_delta": 30,
+          "result_note": "Araç gecikmeden etkilenmeden kendi başına güvenli iniş yaptı."
+        },
+        {
+          "label": "B) Hafif Kalkan + Manuel DSN Kontrolü ($0)",
+          "budget_delta": 0,
+          "mass_delta": -10,
+          "power_delta": 0,
+          "landing_chance_delta": 5,
+          "requires_dsn_lock": true,
+          "result_note": "Kütle azaltıldı; iniş başarısı DSN odasındaki sinyal kilitlemeye bağlı."
+        }
+      ]
+    }
+  ]
+}

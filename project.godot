@@ -14,6 +14,13 @@ config/name="Station13_MissionControl"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
 
+[autoload]
+
+EventBus="*uid://c5v74rqxoudm0"
+GameState="*uid://bgatg4g7coxor"
+LeaderboardManager="*uid://csrrluq0akovk"
+PlayerProfile="*uid://dk5j0gam5hm3c"
+
 [display]
 
 window/size/viewport_width=640

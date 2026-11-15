@@ -1,0 +1,15 @@
+{
+  "rockets": [
+    { "id": "electron", "name": "Electron (Hafif)", "max_mass_kg": 300, "deep_space": false, "cost_m": 10 },
+    { "id": "falcon9", "name": "Falcon 9 (Orta)", "max_mass_kg": 4000, "deep_space": true, "cost_m": 65 },
+    { "id": "sls", "name": "SLS Block 1 (Ağır)", "max_mass_kg": 27000, "deep_space": true, "cost_m": 220 }
+  ],
+  "parts": [
+    { "id": "solar_std", "name": "Standart Güneş Paneli", "type": "power", "cost_m": 12, "mass_kg": 25, "power_w": 150, "data_mbps": 0, "science": 0, "landing_bonus": 0 },
+    { "id": "mmrtg", "name": "MMRTG Nükleer Pil", "type": "power", "cost_m": 80, "mass_kg": 45, "power_w": 115, "data_mbps": 0, "science": 0, "nuclear": true, "landing_bonus": 10 },
+    { "id": "cam_hyper", "name": "Hiperspektral Kamera", "type": "payload", "cost_m": 35, "mass_kg": 55, "power_w": -45, "data_mbps": 25, "science": 500, "landing_bonus": 0 },
+    { "id": "lander_radar", "name": "Doppler İniş Radarı", "type": "avionics", "cost_m": 30, "mass_kg": 20, "power_w": -25, "data_mbps": 5, "science": 100, "landing_bonus": 35 },
+    { "id": "antenna_s", "name": "S-Band Anten", "type": "comms", "cost_m": 10, "mass_kg": 10, "power_w": -15, "data_mbps": -5, "science": 0, "landing_bonus": 0 },
+    { "id": "antenna_ka", "name": "Ka-Band Derin Uzay Çanağı", "type": "comms", "cost_m": 45, "mass_kg": 35, "power_w": -55, "data_mbps": -150, "science": 0, "landing_bonus": 15 }
+  ]
+}
