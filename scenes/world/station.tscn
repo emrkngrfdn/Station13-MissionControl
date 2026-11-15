@@ -83,7 +83,7 @@ polygon = PackedVector2Array(1058, 157, 1059, 160, 1063, 162, 1073, 164, 1082, 1
 [node name="Terminals" type="Node2D" parent="." unique_id=1916353466]
 
 [node name="BriefingTerminal" parent="Terminals" unique_id=337400764 instance=ExtResource("4_terminal")]
-position = Vector2(392, 44)
+position = Vector2(394, 94)
 terminal_type = 0
 prompt_text = "[E] Brifing"
 show_placeholder_visual = false
@@ -112,7 +112,7 @@ show_placeholder_visual = false
 beacon_mode = true
 
 [node name="DSNTerminal" parent="Terminals" unique_id=1254759518 instance=ExtResource("4_terminal")]
-position = Vector2(997, 94)
+position = Vector2(996, 86)
 terminal_type = 4
 prompt_text = "[E] DSN Kulesi"
 show_placeholder_visual = false
