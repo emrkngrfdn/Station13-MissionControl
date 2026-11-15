@@ -11,7 +11,7 @@
   "parts": [
     {
       "id": "aqua_airs",
-      "name": "AIRS (Atmosferik Kızılötesi İskandil)",
+      "name": "Kızılötesi Sensör",
       "type": "payload",
       "mission_ids": ["leo_climate_aqua"],
       "cost_m": 40,
@@ -25,7 +25,7 @@
     },
     {
       "id": "aqua_modis",
-      "name": "MODIS (İklim ve Bulut Kamerası)",
+      "name": "İklim Kamerası",
       "type": "payload",
       "mission_ids": ["leo_climate_aqua"],
       "cost_m": 35,
@@ -39,7 +39,7 @@
     },
     {
       "id": "aqua_amsre",
-      "name": "AMSR-E (Mikrodalga Radyometre)",
+      "name": "Mikrodalga Sensör",
       "type": "payload",
       "mission_ids": ["leo_climate_aqua"],
       "cost_m": 45,
@@ -53,7 +53,7 @@
     },
     {
       "id": "aqua_ceres",
-      "name": "CERES (Bulut ve Radyasyon Sensörü)",
+      "name": "Bulut Sensörü",
       "type": "payload",
       "mission_ids": ["leo_climate_aqua"],
       "cost_m": 15,
@@ -67,7 +67,7 @@
     },
     {
       "id": "lro_lend",
-      "name": "LEND (Nötron Dedektörü)",
+      "name": "Nötron Dedektörü",
       "type": "payload",
       "mission_ids": ["lunar_pole_lro"],
       "cost_m": 35,
@@ -81,7 +81,7 @@
     },
     {
       "id": "lro_diviner",
-      "name": "Diviner (Termal Radyometre)",
+      "name": "Termal Sensör",
       "type": "payload",
       "mission_ids": ["lunar_pole_lro"],
       "cost_m": 25,
@@ -95,7 +95,7 @@
     },
     {
       "id": "lro_lola",
-      "name": "LOLA (Lazer Altimetre)",
+      "name": "Lazer Altimetre",
       "type": "avionics",
       "mission_ids": ["lunar_pole_lro"],
       "cost_m": 30,
@@ -109,7 +109,7 @@
     },
     {
       "id": "lro_lroc",
-      "name": "LROC (Yüksek Çözünürlüklü Kamera)",
+      "name": "Yüzey Kamerası",
       "type": "payload",
       "mission_ids": ["lunar_pole_lro"],
       "cost_m": 22,
@@ -123,7 +123,7 @@
     },
     {
       "id": "lro_lamp",
-      "name": "LAMP (Lyman-Alpha UV Sensörü)",
+      "name": "UV Sensörü",
       "type": "payload",
       "mission_ids": ["lunar_pole_lro"],
       "cost_m": 18,
@@ -137,7 +137,7 @@
     },
     {
       "id": "lro_survival_heater",
-      "name": "Aktif Termal Isıtıcı (Survival Heater)",
+      "name": "Termal Isıtıcı",
       "type": "survival",
       "mission_ids": ["lunar_pole_lro"],
       "cost_m": 20,
@@ -151,7 +151,7 @@
     },
     {
       "id": "juno_mwr",
-      "name": "MWR (Mikrodalga Radyometre)",
+      "name": "Mikrodalga Sensör",
       "type": "payload",
       "mission_ids": ["europa_juno"],
       "cost_m": 55,
@@ -165,7 +165,7 @@
     },
     {
       "id": "juno_jiram",
-      "name": "JIRAM (Kızılötesi Haritalayıcı)",
+      "name": "Kızılötesi Harita",
       "type": "payload",
       "mission_ids": ["europa_juno"],
       "cost_m": 35,
@@ -179,7 +179,7 @@
     },
     {
       "id": "juno_jade",
-      "name": "JADE (Parçacık & Plazma Dedektörü)",
+      "name": "Plazma Dedektörü",
       "type": "payload",
       "mission_ids": ["europa_juno"],
       "cost_m": 30,
@@ -193,7 +193,7 @@
     },
     {
       "id": "juno_cam",
-      "name": "JunoCam (Görünür Işık Kamerası)",
+      "name": "Optik Kamera",
       "type": "payload",
       "mission_ids": ["europa_juno"],
       "cost_m": 15,
@@ -207,7 +207,7 @@
     },
     {
       "id": "juno_radiation_vault",
-      "name": "Radyasyon Zırhı Kasası (Radiation Vault)",
+      "name": "Radyasyon Zırhı",
       "type": "survival",
       "mission_ids": ["europa_juno"],
       "cost_m": 60,
@@ -221,7 +221,7 @@
     },
     {
       "id": "mars_supercam",
-      "name": "SuperCam (Lazer Spektrometre)",
+      "name": "Lazer Spektrometre",
       "type": "payload",
       "mission_ids": ["mars_perseverance"],
       "cost_m": 40,
@@ -235,7 +235,7 @@
     },
     {
       "id": "mars_pixl",
-      "name": "PIXL (X-Işını Litolojisi)",
+      "name": "X-Işını Sensörü",
       "type": "payload",
       "mission_ids": ["mars_perseverance"],
       "cost_m": 32,
@@ -249,7 +249,7 @@
     },
     {
       "id": "mars_sherloc",
-      "name": "SHERLOC (Organik & Biyo-İmza UV)",
+      "name": "Biyo-İmza Sensörü",
       "type": "payload",
       "mission_ids": ["mars_perseverance"],
       "cost_m": 50,
@@ -263,7 +263,7 @@
     },
     {
       "id": "mars_moxie",
-      "name": "MOXIE (Oksijen Üretim Deneyi)",
+      "name": "Oksijen Üreteci",
       "type": "payload",
       "mission_ids": ["mars_perseverance"],
       "cost_m": 38,
@@ -278,7 +278,7 @@
     },
     {
       "id": "mars_mastcam_z",
-      "name": "Mastcam-Z (Stereo Navigasyon Kamerası)",
+      "name": "Navigasyon Kamerası",
       "type": "avionics",
       "mission_ids": ["mars_perseverance"],
       "cost_m": 28,
@@ -292,7 +292,7 @@
     },
     {
       "id": "mars_meda",
-      "name": "MEDA (Hava Durumu Sensörü)",
+      "name": "Hava Sensörü",
       "type": "payload",
       "mission_ids": ["mars_perseverance"],
       "cost_m": 18,
@@ -306,7 +306,7 @@
     },
     {
       "id": "solar_std",
-      "name": "Standart Güneş Paneli",
+      "name": "Güneş Paneli",
       "type": "power",
       "mission_ids": ["leo_climate_aqua", "lunar_pole_lro", "europa_juno"],
       "cost_m": 12,
@@ -320,7 +320,7 @@
     },
     {
       "id": "solar_high_eff",
-      "name": "Üç Eklemli (GaAs) Güneş Paneli",
+      "name": "Gelişmiş Güneş Paneli",
       "type": "power",
       "mission_ids": ["leo_climate_aqua", "lunar_pole_lro", "europa_juno"],
       "cost_m": 28,
@@ -334,7 +334,7 @@
     },
     {
       "id": "mmrtg",
-      "name": "MMRTG Nükleer Güç Kaynağı",
+      "name": "Nükleer Güç (MMRTG)",
       "type": "power",
       "mission_ids": ["europa_juno", "mars_perseverance", "lunar_pole_lro"],
       "cost_m": 75,
@@ -349,7 +349,7 @@
     },
     {
       "id": "rhu_battery",
-      "name": "Kompakt Lityum-İyon & RHU Paketi",
+      "name": "Batarya Paketi",
       "type": "power",
       "mission_ids": ["all"],
       "cost_m": 22,
@@ -378,7 +378,7 @@
     },
     {
       "id": "antenna_x",
-      "name": "X-Band Orta Menzil Anteni",
+      "name": "X-Band Anten",
       "type": "comms",
       "mission_ids": ["all"],
       "cost_m": 24,
@@ -392,7 +392,7 @@
     },
     {
       "id": "antenna_ka",
-      "name": "Ka-Band Derin Uzay Çanağı",
+      "name": "Ka-Band Anten",
       "type": "comms",
       "mission_ids": ["all"],
       "cost_m": 45,
@@ -406,7 +406,7 @@
     },
     {
       "id": "star_tracker_cpu",
-      "name": "Yıldız İzleyici & Yedek Aviyonik",
+      "name": "Yedek Aviyonik",
       "type": "avionics",
       "mission_ids": ["all"],
       "cost_m": 20,
@@ -420,7 +420,7 @@
     },
     {
       "id": "rad750_cpu",
-      "name": "RAD750 Radyasyon Korumalı Bilgisayar",
+      "name": "Radyasyon Korumalı CPU",
       "type": "avionics",
       "mission_ids": ["all"],
       "cost_m": 34,
@@ -434,7 +434,7 @@
     },
     {
       "id": "mli_thermal_shield",
-      "name": "Çok Katmanlı Termal Yalıtım (MLI)",
+      "name": "Termal Yalıtım",
       "type": "survival",
       "mission_ids": ["all"],
       "cost_m": 12,

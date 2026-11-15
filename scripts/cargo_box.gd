@@ -7,7 +7,7 @@ func setup(data: Dictionary) -> void:
 	part_data = data
 	if has_node("Label"):
 		var lbl: Label = $Label
-		lbl.text = String(data.get("name", "Kargo")).substr(0, 10)
+		lbl.text = String(data.get("name", "Kargo")).substr(0, 22)
 		lbl.add_theme_color_override("font_color", Color(1.0, 0.96, 0.72))
 		lbl.add_theme_color_override("font_outline_color", Color(0.04, 0.06, 0.1, 1.0))
 		lbl.add_theme_constant_override("outline_size", 3)
