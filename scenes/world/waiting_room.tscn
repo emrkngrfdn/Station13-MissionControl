@@ -10,8 +10,44 @@
 [ext_resource type="Texture2D" uid="uid://cdquuyivhswvi" path="res://assets/ui/hud_players_sheet.png" id="8_players_sheet"]
 [ext_resource type="Texture2D" uid="uid://bbecnxfgyibe6" path="res://assets/ui/btn_main_menu.png" id="9_btn_menu"]
 [ext_resource type="Texture2D" uid="uid://bsqyv0duk1n21" path="res://assets/ui/btn_start_mission.png" id="10_btn_start"]
-[ext_resource type="Texture2D" path="res://assets/ui/settings_colors_bar.png" id="11_colors_bar"]
-[ext_resource type="Texture2D" path="res://assets/ui/settings_panel_sheet.png" id="12_settings_sheet"]
+[ext_resource type="Texture2D" uid="uid://coey807p3tng3" path="res://assets/ui/settings_colors_bar.png" id="11_colors_bar"]
+[ext_resource type="Texture2D" uid="uid://cvqflxo52yhee" path="res://assets/ui/settings_panel_sheet.png" id="12_settings_sheet"]
+
+[sub_resource type="RectangleShape2D" id="WallH"]
+size = Vector2(529, 14)
+
+[sub_resource type="RectangleShape2D" id="WallV"]
+size = Vector2(14, 260)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_pdyg6"]
+size = Vector2(38, 29)
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_5ywvb"]
+radius = 30.489838
+height = 76.205536
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_beacon"]
+content_margin_left = 6.0
+content_margin_top = 2.0
+content_margin_right = 6.0
+content_margin_bottom = 3.0
+bg_color = Color(0.05, 0.1, 0.18, 0.92)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 0.8, 0.3, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+shadow_color = Color(0, 0, 0, 0.65)
+shadow_size = 2
+anti_aliasing = false
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_players_panel"]
+atlas = ExtResource("8_players_sheet")
+region = Rect2(0, 0, 107, 51)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_settings_bg"]
 atlas = ExtResource("12_settings_sheet")
@@ -20,6 +56,8 @@ region = Rect2(16, 44, 600, 313)
 [sub_resource type="AtlasTexture" id="AtlasTexture_close_btn"]
 atlas = ExtResource("12_settings_sheet")
 region = Rect2(548, 9, 75, 29)
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_transparent"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_color_red"]
 atlas = ExtResource("11_colors_bar")
@@ -36,25 +74,6 @@ region = Rect2(127, 0, 54, 42)
 [sub_resource type="AtlasTexture" id="AtlasTexture_color_green"]
 atlas = ExtResource("11_colors_bar")
 region = Rect2(187, 0, 54, 42)
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_transparent"]
-
-[sub_resource type="RectangleShape2D" id="WallH"]
-size = Vector2(529, 14)
-
-[sub_resource type="RectangleShape2D" id="WallV"]
-size = Vector2(14, 260)
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_pdyg6"]
-size = Vector2(38, 29)
-
-[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_5ywvb"]
-radius = 30.489838
-height = 76.205536
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_players_panel"]
-atlas = ExtResource("8_players_sheet")
-region = Rect2(0, 0, 107, 51)
 
 [node name="WaitingRoom" type="Node2D" unique_id=201186470]
 script = ExtResource("1_wait")
@@ -110,10 +129,28 @@ scale = Vector2(1.05, 1.05)
 shape = SubResource("CapsuleShape2D_5ywvb")
 
 [node name="HostLaptopTerminal" parent="." unique_id=75876814 instance=ExtResource("3_terminal")]
-position = Vector2(250, 189)
+position = Vector2(227, 191)
+scale = Vector2(1.735, 1.735)
 terminal_type = 0
 prompt_text = "[E] Görev & Oda Ayarları"
 show_placeholder_visual = false
+
+[node name="HoloBeacon" type="Label" parent="." unique_id=501122501]
+unique_name_in_owner = true
+z_index = 15
+z_as_relative = false
+offset_left = 186.0
+offset_top = 136.0
+offset_right = 268.0
+offset_bottom = 152.0
+theme_override_colors/font_color = Color(1, 0.88, 0.42, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.04, 0.08, 1)
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_beacon")
+text = "[E] AYARLAR ▼"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="CrewDummies" type="Node2D" parent="." unique_id=1504850596]
 
@@ -398,7 +435,7 @@ autowrap_mode = 3
 
 [node name="ColorRow" type="Control" parent="HUD/HostSettingsPanel" unique_id=1298142832]
 unique_name_in_owner = true
-layout_mode = 0
+anchors_preset = 0
 offset_left = 278.0
 offset_top = 54.0
 offset_right = 516.0
@@ -406,8 +443,6 @@ offset_bottom = 92.0
 
 [node name="CoralBtn" type="TextureButton" parent="HUD/HostSettingsPanel/ColorRow" unique_id=1856556852]
 layout_mode = 0
-offset_left = 0.0
-offset_top = 0.0
 offset_right = 55.0
 offset_bottom = 38.0
 mouse_default_cursor_shape = 2
@@ -418,7 +453,6 @@ stretch_mode = 5
 [node name="CyanBtn" type="TextureButton" parent="HUD/HostSettingsPanel/ColorRow" unique_id=1839900319]
 layout_mode = 0
 offset_left = 61.0
-offset_top = 0.0
 offset_right = 116.0
 offset_bottom = 38.0
 mouse_default_cursor_shape = 2
@@ -429,7 +463,6 @@ stretch_mode = 5
 [node name="GoldBtn" type="TextureButton" parent="HUD/HostSettingsPanel/ColorRow" unique_id=1474183078]
 layout_mode = 0
 offset_left = 122.0
-offset_top = 0.0
 offset_right = 177.0
 offset_bottom = 38.0
 mouse_default_cursor_shape = 2
@@ -440,7 +473,6 @@ stretch_mode = 5
 [node name="GreenBtn" type="TextureButton" parent="HUD/HostSettingsPanel/ColorRow" unique_id=1223878722]
 layout_mode = 0
 offset_left = 183.0
-offset_top = 0.0
 offset_right = 238.0
 offset_bottom = 38.0
 mouse_default_cursor_shape = 2
@@ -451,26 +483,26 @@ stretch_mode = 5
 [node name="RoomTypeRow" type="HBoxContainer" parent="HUD/HostSettingsPanel" unique_id=501122403]
 layout_mode = 0
 offset_left = 278.0
-offset_top = 115.0
+offset_top = 111.0
 offset_right = 516.0
-offset_bottom = 140.0
-theme_override_constants/separation = 8
+offset_bottom = 139.0
+theme_override_constants/separation = 4
 
 [node name="PublicBtn" type="TextureButton" parent="HUD/HostSettingsPanel/RoomTypeRow" unique_id=501122404]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(115, 25)
+custom_minimum_size = Vector2(117, 28)
 layout_mode = 2
 mouse_default_cursor_shape = 2
 ignore_texture_size = true
-stretch_mode = 5
+stretch_mode = 0
 
 [node name="PrivateBtn" type="TextureButton" parent="HUD/HostSettingsPanel/RoomTypeRow" unique_id=501122405]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(115, 25)
+custom_minimum_size = Vector2(117, 28)
 layout_mode = 2
 mouse_default_cursor_shape = 2
 ignore_texture_size = true
-stretch_mode = 5
+stretch_mode = 0
 
 [node name="LeaderboardList" type="VBoxContainer" parent="HUD/HostSettingsPanel" unique_id=463532531]
 unique_name_in_owner = true

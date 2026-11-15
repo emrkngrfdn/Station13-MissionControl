@@ -52,9 +52,14 @@ const SUIT_COLORS: Array[Color] = [
 @onready var back_btn: TextureButton = $HUD/BottomBar/BackBtn
 @onready var start_btn: TextureButton = $HUD/BottomBar/StartBtn
 @onready var close_btn: TextureButton = $HUD/HostSettingsPanel/CloseBtn
+@onready var holo_beacon: Label = %HoloBeacon
+@onready var holo_prompt: Label = $HostLaptopTerminal/PromptLabel
+
+var _beacon_t: float = 0.0
 
 func _ready() -> void:
 	_set_settings_open(false)
+	holo_prompt.modulate.a = 0.0
 	_setup_texture_button(back_btn)
 	_setup_texture_button(start_btn)
 	_setup_texture_button(close_btn)
@@ -76,6 +81,18 @@ func _ready() -> void:
 	_refresh_host_permissions()
 	_refresh_top_bar()
 	_refresh_leaderboard()
+
+func _process(delta: float) -> void:
+	_beacon_t += delta
+	holo_beacon.visible = not settings_panel.visible
+	if holo_beacon.visible:
+		holo_beacon.position.y = 136.0 + sin(_beacon_t * 3.2) * 2.5
+		if holo_prompt.visible:
+			holo_beacon.text = "[E] ETKİLEŞİM ▼"
+			holo_beacon.modulate = Color(0.55, 1.0, 0.78, 1.0)
+		else:
+			holo_beacon.text = "[E] AYARLAR ▼"
+			holo_beacon.modulate = Color.WHITE
 
 func _setup_texture_button(btn: TextureButton) -> void:
 	btn.pivot_offset = btn.size * 0.5
