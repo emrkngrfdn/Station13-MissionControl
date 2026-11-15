@@ -6,7 +6,6 @@
 radius = 6.0
 
 [node name="HelperDrone" type="CharacterBody2D"]
-scale = Vector2(2, 2)
 script = ExtResource("1_drone")
 
 [node name="BodyVisual" type="ColorRect" parent="."]

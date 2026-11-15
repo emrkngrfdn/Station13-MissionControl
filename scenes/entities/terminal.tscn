@@ -6,7 +6,6 @@
 radius = 22.0
 
 [node name="Terminal" type="Area2D"]
-scale = Vector2(1.8, 1.8)
 script = ExtResource("1_terminal")
 
 [node name="ConsoleVisual" type="ColorRect" parent="."]
@@ -21,6 +20,8 @@ shape = SubResource("CircleShape2D_terminal")
 
 [node name="PromptLabel" type="Label" parent="."]
 visible = false
+z_index = 20
+z_as_relative = false
 offset_left = -40.0
 offset_top = -28.0
 offset_right = 40.0

@@ -11,17 +11,17 @@
 [ext_resource type="Texture2D" path="res://assets/station_bg.jpg" id="9_bg"]
 
 [sub_resource type="RectangleShape2D" id="WallH"]
-size = Vector2(1280, 28)
+size = Vector2(640, 16)
 
 [sub_resource type="RectangleShape2D" id="WallV"]
-size = Vector2(28, 720)
+size = Vector2(16, 360)
 
 [node name="Station" type="Node2D"]
 script = ExtResource("1_station")
 
 [node name="StationBackground" type="TextureRect" parent="."]
-offset_right = 1280.0
-offset_bottom = 720.0
+offset_right = 640.0
+offset_bottom = 360.0
 texture = ExtResource("9_bg")
 expand_mode = 1
 stretch_mode = 0
@@ -29,78 +29,78 @@ stretch_mode = 0
 [node name="Bounds" type="StaticBody2D" parent="."]
 
 [node name="TopWall" type="CollisionShape2D" parent="Bounds"]
-position = Vector2(640, 46)
+position = Vector2(320, 22)
 shape = SubResource("WallH")
 
 [node name="BottomWall" type="CollisionShape2D" parent="Bounds"]
-position = Vector2(640, 692)
+position = Vector2(320, 346)
 shape = SubResource("WallH")
 
 [node name="LeftWall" type="CollisionShape2D" parent="Bounds"]
-position = Vector2(80, 360)
+position = Vector2(40, 180)
 shape = SubResource("WallV")
 
 [node name="RightWall" type="CollisionShape2D" parent="Bounds"]
-position = Vector2(1264, 360)
+position = Vector2(632, 180)
 shape = SubResource("WallV")
 
 [node name="Terminals" type="Node2D" parent="."]
 
 [node name="BriefingTerminal" parent="Terminals" instance=ExtResource("4_terminal")]
-position = Vector2(270, 165)
+position = Vector2(135, 82)
 terminal_type = 0
 prompt_text = "[E] Brifing"
 show_placeholder_visual = false
 
 [node name="MarketTerminal" parent="Terminals" instance=ExtResource("4_terminal")]
-position = Vector2(290, 390)
+position = Vector2(145, 195)
 terminal_type = 1
 prompt_text = "[E] Mağaza"
 show_placeholder_visual = false
 
 [node name="PowerLabTerminal" parent="Terminals" instance=ExtResource("4_terminal")]
-position = Vector2(350, 585)
+position = Vector2(175, 292)
 terminal_type = 3
 prompt_text = "[E] Güç Lab"
 show_placeholder_visual = false
 
 [node name="AssemblyTerminal" parent="Terminals" instance=ExtResource("4_terminal")]
-position = Vector2(800, 250)
+position = Vector2(400, 125)
 terminal_type = 2
 prompt_text = "[E] Monte Et"
 show_placeholder_visual = false
 
 [node name="DSNTerminal" parent="Terminals" instance=ExtResource("4_terminal")]
-position = Vector2(770, 530)
+position = Vector2(385, 265)
 terminal_type = 4
 prompt_text = "[E] DSN Kulesi"
 show_placeholder_visual = false
 
 [node name="LaunchTerminal" parent="Terminals" instance=ExtResource("4_terminal")]
-position = Vector2(1170, 390)
+position = Vector2(585, 195)
 terminal_type = 5
 prompt_text = "[E] Fırlat"
 show_placeholder_visual = false
 
 [node name="ConveyorSpawnPoint" type="Marker2D" parent="."]
-position = Vector2(370, 440)
+position = Vector2(185, 220)
 
 [node name="Player" parent="." instance=ExtResource("2_player")]
-position = Vector2(484, 330)
+position = Vector2(242, 165)
 
 [node name="HelperDrone" parent="." instance=ExtResource("3_drone")]
-position = Vector2(484, 390)
+position = Vector2(242, 195)
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
 [node name="TopBar" type="PanelContainer" parent="HUD"]
-offset_right = 1280.0
-offset_bottom = 44.0
+offset_right = 640.0
+offset_bottom = 26.0
 theme = ExtResource("5_theme")
 
 [node name="HBox" type="HBoxContainer" parent="HUD/TopBar"]
 layout_mode = 2
-theme_override_constants/separation = 24
+theme_override_constants/separation = 12
 alignment = 1
 
 [node name="BudgetLabel" type="Label" parent="HUD/TopBar/HBox"]
@@ -130,19 +130,19 @@ text = "T-PLUS 00:00"
 
 [node name="StatusLabel" type="Label" parent="HUD"]
 unique_name_in_owner = true
-offset_left = 20.0
-offset_top = 678.0
-offset_right = 1090.0
-offset_bottom = 710.0
+offset_left = 10.0
+offset_top = 338.0
+offset_right = 540.0
+offset_bottom = 358.0
 theme = ExtResource("5_theme")
 text = "Durum: Hazır"
 horizontal_alignment = 1
 
 [node name="InteractBtn" type="Button" parent="HUD"]
-offset_left = 1110.0
-offset_top = 666.0
-offset_right = 1264.0
-offset_bottom = 708.0
+offset_left = 550.0
+offset_top = 330.0
+offset_right = 632.0
+offset_bottom = 356.0
 theme = ExtResource("5_theme")
 text = "INTERACT"
 

@@ -1,45 +1,45 @@
-[gd_resource type="Theme" load_steps=4 format=3]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button"]
-bg_color = Color(0.14, 0.24, 0.36, 1)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.32, 0.56, 0.78, 1)
-content_margin_left = 10.0
-content_margin_top = 6.0
-content_margin_right = 10.0
-content_margin_bottom = 6.0
+[gd_resource type="Theme" format=3 uid="uid://c3vtnm5v7ucrt"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_hover"]
+content_margin_left = 6.0
+content_margin_top = 3.0
+content_margin_right = 6.0
+content_margin_bottom = 3.0
 bg_color = Color(0.2, 0.34, 0.5, 1)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
 border_color = Color(0.48, 0.78, 1, 1)
-content_margin_left = 10.0
-content_margin_top = 6.0
-content_margin_right = 10.0
-content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button"]
+content_margin_left = 6.0
+content_margin_top = 3.0
+content_margin_right = 6.0
+content_margin_bottom = 3.0
+bg_color = Color(0.14, 0.24, 0.36, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.32, 0.56, 0.78, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+content_margin_left = 6.0
+content_margin_top = 6.0
+content_margin_right = 6.0
+content_margin_bottom = 6.0
 bg_color = Color(0.08, 0.11, 0.18, 0.94)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
 border_color = Color(0.24, 0.36, 0.52, 1)
-content_margin_left = 10.0
-content_margin_top = 10.0
-content_margin_right = 10.0
-content_margin_bottom = 10.0
 
 [resource]
-default_font_size = 16
+default_font_size = 10
 Button/styles/hover = SubResource("StyleBoxFlat_button_hover")
 Button/styles/normal = SubResource("StyleBoxFlat_button")
-LineEdit/font_sizes/font_size = 16
-OptionButton/font_sizes/font_size = 16
+LineEdit/font_sizes/font_size = 10
+OptionButton/font_sizes/font_size = 10
 PanelContainer/styles/panel = SubResource("StyleBoxFlat_panel")

@@ -1,9 +1,11 @@
 extends Node2D
 
+const ASTRONAUT_SHEET: Texture2D = preload("res://assets/astronaut_sheet.png")
+
 const CREW_POSITIONS: Array[Vector2] = [
-	Vector2(740, 315),
-	Vector2(830, 315),
-	Vector2(740, 420)
+	Vector2(370, 158),
+	Vector2(415, 158),
+	Vector2(370, 210)
 ]
 
 const SUIT_COLORS: Array[Color] = [
@@ -53,38 +55,29 @@ func _on_terminal_opened(terminal_name: String) -> void:
 		settings_panel.visible = not settings_panel.visible
 
 func _on_lobby_updated(players: Array) -> void:
-	if players.size() > 0 and player.has_node("BodyVisual"):
-		player.get_node("BodyVisual").color = players[0].get("color", Color.CORAL)
-
 	for child in crew_dummies.get_children():
 		child.queue_free()
 
 	for i in range(1, players.size()):
 		var p: Dictionary = players[i]
 		var dummy := Node2D.new()
-		dummy.scale = Vector2(2, 2)
 		dummy.position = CREW_POSITIONS[(i - 1) % CREW_POSITIONS.size()]
 
-		var body := ColorRect.new()
-		body.offset_left = -8
-		body.offset_top = -8
-		body.offset_right = 8
-		body.offset_bottom = 8
-		body.color = p.get("color", Color.DODGER_BLUE)
-		dummy.add_child(body)
-
-		var visor := ColorRect.new()
-		visor.offset_left = 3
-		visor.offset_top = 3
-		visor.offset_right = 13
-		visor.offset_bottom = 8
-		visor.color = Color(0.85, 0.95, 1.0)
-		body.add_child(visor)
+		var spr := Sprite2D.new()
+		spr.texture = ASTRONAUT_SHEET
+		spr.scale = Vector2(0.85, 0.85)
+		spr.offset.x = -7.0
+		spr.region_enabled = true
+		var row: int = i % 4
+		spr.region_rect = Rect2(0, floor(row * 46.75), 50, 46)
+		dummy.add_child(spr)
 
 		var tag := Label.new()
 		tag.text = p.get("tag", "Crew")
+		tag.z_index = 20
+		tag.z_as_relative = false
 		tag.offset_left = -35
-		tag.offset_top = -22
+		tag.offset_top = -30
 		tag.offset_right = 35
 		tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		tag.add_theme_font_size_override("font_size", 8)

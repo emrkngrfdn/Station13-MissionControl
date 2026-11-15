@@ -31,7 +31,7 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="MenuPanel" type="PanelContainer" parent="CenterBox"]
-custom_minimum_size = Vector2(540, 0)
+custom_minimum_size = Vector2(340, 0)
 layout_mode = 2
 
 [node name="VBox" type="VBoxContainer" parent="CenterBox/MenuPanel"]
