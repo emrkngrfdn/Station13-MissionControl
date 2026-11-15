@@ -23,6 +23,7 @@ func _ready() -> void:
 	EventBus.lobby_updated.connect(_on_lobby_updated)
 	_sync_color_row()
 
+<<<<<<< HEAD
 func _on_lobby_updated(_players: Array) -> void:
 	_sync_color_row()
 
@@ -44,6 +45,11 @@ func _color_to_row(c: Color) -> int:
 func _physics_process(delta: float) -> void:
 	var input_dir := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 	var speed_mult := 0.80 if carried_box != null else 1.0
+=======
+func _physics_process(_delta: float) -> void:
+	var input_dir: Vector2 = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+	var speed_mult: float = 0.80 if carried_box != null else 1.0
+>>>>>>> origin/zuley
 	velocity = input_dir * base_speed * speed_mult
 	move_and_slide()
 	if input_dir.length() > 0.1 and get_slide_collision_count() > 0:
@@ -131,6 +137,30 @@ func _update_sprite_frame(col: int) -> void:
 	sprite.offset.x = (cx - 25.0) if sprite.flip_h else (25.0 - cx)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_accept") and interactable_target != null:
+	if event.is_action_pressed("ui_accept"):
+		try_interact()
+
+func try_interact() -> void:
+	if interactable_target != null and is_instance_valid(interactable_target):
 		if interactable_target.has_method("interact"):
 			interactable_target.interact()
+			return
+	if carried_box != null and is_instance_valid(carried_box):
+		drop_carried_box()
+
+func drop_carried_box(target_pos: Vector2 = Vector2.INF) -> void:
+	if carried_box == null or not is_instance_valid(carried_box):
+		carried_box = null
+		return
+	var box: Node2D = carried_box
+	var world_parent: Node = get_parent()
+	if world_parent != null:
+		box.reparent(world_parent)
+	if target_pos == Vector2.INF:
+		box.global_position = global_position + Vector2(0, 22)
+	else:
+		box.global_position = target_pos
+	box.set("carrier", null)
+	carried_box = null
+	var box_name: String = String(box.get("part_data").get("name", "Kargo")) if box.get("part_data") is Dictionary else "Kargo"
+	EventBus.status_message.emit("YERE BIRAKILDI: %s" % box_name, false)
