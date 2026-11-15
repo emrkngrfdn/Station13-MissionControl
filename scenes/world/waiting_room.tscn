@@ -6,6 +6,10 @@
 [ext_resource type="Theme" uid="uid://c3vtnm5v7ucrt" path="res://assets/pixel_ui_theme.tres" id="4_theme"]
 [ext_resource type="Texture2D" uid="uid://c61k787duj5i4" path="res://assets/waiting_bg.jpg" id="5_bg"]
 [ext_resource type="Texture2D" uid="uid://cbt04bx0dqsyg" path="res://assets/waiting_fg.png" id="6_fg"]
+[ext_resource type="Texture2D" uid="uid://5504kryw5ray" path="res://assets/ui/hud_mission_frame.png" id="7_mission_frame"]
+[ext_resource type="Texture2D" uid="uid://cdquuyivhswvi" path="res://assets/ui/hud_players_sheet.png" id="8_players_sheet"]
+[ext_resource type="Texture2D" uid="uid://bbecnxfgyibe6" path="res://assets/ui/btn_main_menu.png" id="9_btn_menu"]
+[ext_resource type="Texture2D" uid="uid://bsqyv0duk1n21" path="res://assets/ui/btn_start_mission.png" id="10_btn_start"]
 
 [sub_resource type="RectangleShape2D" id="WallH"]
 size = Vector2(529, 14)
@@ -20,6 +24,10 @@ size = Vector2(38, 29)
 radius = 30.489838
 height = 76.205536
 
+[sub_resource type="AtlasTexture" id="AtlasTexture_players_panel"]
+atlas = ExtResource("8_players_sheet")
+region = Rect2(0, 0, 107, 51)
+
 [node name="WaitingRoom" type="Node2D" unique_id=201186470]
 script = ExtResource("1_wait")
 
@@ -28,6 +36,7 @@ offset_right = 640.0
 offset_bottom = 360.0
 texture = ExtResource("5_bg")
 expand_mode = 1
+metadata/_edit_lock_ = true
 
 [node name="Bounds" type="StaticBody2D" parent="." unique_id=594665519]
 
@@ -48,7 +57,7 @@ shape = SubResource("WallV")
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Bounds" unique_id=862076783]
 build_mode = 1
-polygon = PackedVector2Array(168, 193, 186, 163, 211, 152, 243, 152, 259, 158, 267, 162, 275, 167, 282, 172, 300, 172, 303, 171, 304, 119, 310, 123, 327, 115, 330, 111, 328, 106, 331, 102, 345, 102, 356, 93, 403, 93, 408, 98, 417, 98, 417, 112, 438, 112, 449, 119, 469, 113, 476, 112, 478, 117, 480, 124, 487, 130, 498, 130, 504, 124, 504, 116, 506, 112, 519, 112, 544, 121, 544, 150, 561, 150, 561, 162, 564, 164, 580, 164, 584, 159, 614, 158, 622, 163, 622, 216, 576, 217, 576, 239, 489, 239, 436, 285, 436, 293, 427, 293, 426, 285, 420, 285, 397, 285, 394, 293, 382, 295, 382, 319, 367, 319, 367, 294, 353, 294, 346, 279, 326, 279, 326, 284, 317, 283, 318, 275, 319, 270, 306, 266, 305, 214, 302, 210, 284, 211, 267, 235, 227, 251, 186, 239, 168, 209)
+polygon = PackedVector2Array(168, 193, 184, 163, 211, 149, 242, 149, 259, 158, 267, 162, 275, 167, 282, 172, 300, 172, 303, 171, 304, 119, 310, 123, 327, 115, 330, 111, 328, 106, 331, 102, 345, 102, 356, 93, 403, 93, 408, 98, 417, 98, 417, 112, 438, 112, 449, 119, 469, 113, 476, 112, 478, 117, 480, 124, 487, 130, 498, 130, 504, 124, 504, 116, 506, 112, 519, 112, 544, 121, 544, 150, 561, 150, 561, 162, 564, 164, 580, 164, 584, 159, 614, 158, 622, 163, 622, 216, 576, 217, 576, 239, 489, 239, 436, 285, 436, 293, 427, 293, 426, 285, 420, 285, 397, 285, 394, 293, 382, 295, 382, 319, 367, 319, 367, 294, 353, 294, 346, 279, 326, 279, 326, 284, 317, 283, 318, 275, 319, 270, 306, 266, 305, 214, 302, 210, 284, 211, 267, 235, 227, 251, 186, 239, 168, 209)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Bounds" unique_id=1859191910]
 position = Vector2(417, 228)
@@ -94,56 +103,149 @@ metadata/_edit_lock_ = true
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=429577715]
 
-[node name="TopBar" type="PanelContainer" parent="HUD" unique_id=1484163339]
+[node name="TopHUD" type="Control" parent="HUD" unique_id=1484163339]
+layout_mode = 3
+anchors_preset = 0
 offset_right = 640.0
-offset_bottom = 26.0
+offset_bottom = 68.0
+mouse_filter = 2
 theme = ExtResource("4_theme")
 
-[node name="HBox" type="HBoxContainer" parent="HUD/TopBar" unique_id=637953169]
-layout_mode = 2
-theme_override_constants/separation = 12
+[node name="PlayersPanel" type="TextureRect" parent="HUD/TopHUD" unique_id=637953169]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 4.0
+offset_right = 115.0
+offset_bottom = 55.0
+texture = SubResource("AtlasTexture_players_panel")
+stretch_mode = 4
 
-[node name="RoomInfoLabel" type="Label" parent="HUD/TopBar/HBox" unique_id=286888215]
+[node name="PlayerCountLabel" type="Label" parent="HUD/TopHUD/PlayersPanel" unique_id=501122334]
 unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.95, 0.72, 0.25, 1)
-text = "ODA: JPL-42 | OYUNCU: 1/4"
-
-[node name="MissionSummaryLabel" type="Label" parent="HUD/TopBar/HBox" unique_id=1878663944]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.45, 0.9, 1, 1)
-text = "GÖREV: LEO İklim | BÜTÇE: $180M"
-clip_text = true
-
-[node name="BottomBar" type="HBoxContainer" parent="HUD" unique_id=1373069225]
-offset_left = 10.0
-offset_top = 328.0
-offset_right = 630.0
-offset_bottom = 354.0
-theme = ExtResource("4_theme")
-theme_override_constants/separation = 8
-
-[node name="BackBtn" type="Button" parent="HUD/BottomBar" unique_id=880415292]
-layout_mode = 2
-text = "< ANA MENÜ"
-
-[node name="HintLabel" type="Label" parent="HUD/BottomBar" unique_id=1478287052]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 9
-text = "WASD: Yürü | Holo-masa [Space]: Ayarlar"
+layout_mode = 0
+offset_left = 66.0
+offset_top = 8.0
+offset_right = 78.0
+offset_bottom = 23.0
+theme_override_colors/font_color = Color(0.9, 0.98, 1, 1)
+theme_override_font_sizes/font_size = 11
+text = "1"
 horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HelmetSlots" type="Control" parent="HUD/TopHUD/PlayersPanel" unique_id=501122335]
+unique_name_in_owner = true
+anchors_preset = 0
+offset_right = 107.0
+offset_bottom = 51.0
+mouse_filter = 2
+
+[node name="Slot0" type="TextureRect" parent="HUD/TopHUD/PlayersPanel/HelmetSlots" unique_id=501122336]
+visible = false
+layout_mode = 0
+offset_left = 15.0
+offset_top = 25.0
+offset_right = 34.0
+offset_bottom = 44.0
+stretch_mode = 4
+
+[node name="Slot1" type="TextureRect" parent="HUD/TopHUD/PlayersPanel/HelmetSlots" unique_id=501122337]
+visible = false
+layout_mode = 0
+offset_left = 34.0
+offset_top = 25.0
+offset_right = 53.0
+offset_bottom = 44.0
+stretch_mode = 4
+
+[node name="Slot2" type="TextureRect" parent="HUD/TopHUD/PlayersPanel/HelmetSlots" unique_id=501122338]
+visible = false
+layout_mode = 0
+offset_left = 53.0
+offset_top = 25.0
+offset_right = 72.0
+offset_bottom = 44.0
+stretch_mode = 4
+
+[node name="Slot3" type="TextureRect" parent="HUD/TopHUD/PlayersPanel/HelmetSlots" unique_id=501122339]
+visible = false
+layout_mode = 0
+offset_left = 72.0
+offset_top = 25.0
+offset_right = 91.0
+offset_bottom = 44.0
+stretch_mode = 4
+
+[node name="MissionFrame" type="TextureRect" parent="HUD/TopHUD" unique_id=501122340]
+layout_mode = 0
+offset_left = 222.0
+offset_top = 2.0
+offset_right = 418.0
+offset_bottom = 66.0
+texture = ExtResource("7_mission_frame")
+expand_mode = 1
+
+[node name="MissionSummaryLabel" type="Label" parent="HUD/TopHUD/MissionFrame" unique_id=1878663944]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 16.0
+offset_top = 9.0
+offset_right = 180.0
+offset_bottom = 39.0
+theme_override_colors/font_color = Color(0.82, 0.96, 1, 1)
+theme_override_constants/line_spacing = 1
+theme_override_font_sizes/font_size = 8
+text = "GÖREV:
+1. LEO İklim Gözlemi (Aqua)"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
 clip_text = true
 
-[node name="SettingsBtn" type="Button" parent="HUD/BottomBar" unique_id=707541663]
-layout_mode = 2
-text = "AYARLAR"
+[node name="RoomInfoLabel" type="Label" parent="HUD/TopHUD/MissionFrame" unique_id=286888215]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 54.0
+offset_top = 44.0
+offset_right = 142.0
+offset_bottom = 58.0
+theme_override_colors/font_color = Color(1, 0.85, 0.35, 1)
+theme_override_font_sizes/font_size = 8
+text = "ODA: LOKAL"
+horizontal_alignment = 1
+vertical_alignment = 1
+clip_text = true
 
-[node name="StartBtn" type="Button" parent="HUD/BottomBar" unique_id=341162229]
-layout_mode = 2
-text = "GÖREVİ BAŞLAT >>"
+[node name="BottomBar" type="Control" parent="HUD" unique_id=1373069225]
+layout_mode = 3
+anchors_preset = 0
+offset_top = 316.0
+offset_right = 640.0
+offset_bottom = 360.0
+mouse_filter = 2
+theme = ExtResource("4_theme")
+
+[node name="BackBtn" type="TextureButton" parent="HUD/BottomBar" unique_id=880415292]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 2.0
+offset_right = 104.0
+offset_bottom = 40.0
+mouse_default_cursor_shape = 2
+texture_normal = ExtResource("9_btn_menu")
+ignore_texture_size = true
+stretch_mode = 5
+
+[node name="StartBtn" type="TextureButton" parent="HUD/BottomBar" unique_id=341162229]
+layout_mode = 0
+offset_left = 524.0
+offset_top = 2.0
+offset_right = 632.0
+offset_bottom = 40.0
+mouse_default_cursor_shape = 2
+texture_normal = ExtResource("10_btn_start")
+ignore_texture_size = true
+stretch_mode = 5
 
 [node name="HostSettingsPanel" type="PanelContainer" parent="HUD" unique_id=812025663]
 unique_name_in_owner = true
@@ -273,7 +375,6 @@ layout_mode = 2
 size_flags_vertical = 3
 
 [connection signal="pressed" from="HUD/BottomBar/BackBtn" to="." method="_on_back_menu_pressed"]
-[connection signal="pressed" from="HUD/BottomBar/SettingsBtn" to="." method="_on_toggle_settings_pressed"]
 [connection signal="pressed" from="HUD/BottomBar/StartBtn" to="." method="_on_start_mission_pressed"]
 [connection signal="pressed" from="HUD/HostSettingsPanel/VBox/Header/CloseBtn" to="." method="_on_close_settings_pressed"]
 [connection signal="item_selected" from="HUD/HostSettingsPanel/VBox/Columns/LeftCol/MissionOption" to="." method="_on_mission_selected"]

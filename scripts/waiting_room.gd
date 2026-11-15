@@ -1,6 +1,14 @@
 extends Node2D
 
 const ASTRONAUT_SHEET: Texture2D = preload("res://assets/astronaut_sheet.png")
+const HUD_PLAYERS_SHEET: Texture2D = preload("res://assets/ui/hud_players_sheet.png")
+
+const HELMET_REGIONS: Array[Rect2] = [
+	Rect2(8, 62, 19, 19),  # Kırmızı
+	Rect2(56, 62, 19, 19), # Mavi
+	Rect2(32, 62, 19, 19), # Sarı
+	Rect2(80, 62, 19, 19)  # Yeşil
+]
 
 const CREW_POSITIONS: Array[Vector2] = [
 	Vector2(370, 158),
@@ -17,6 +25,8 @@ const SUIT_COLORS: Array[Color] = [
 
 @onready var room_info_label: Label = %RoomInfoLabel
 @onready var mission_summary_label: Label = %MissionSummaryLabel
+@onready var player_count_label: Label = %PlayerCountLabel
+@onready var helmet_slots: Control = %HelmetSlots
 @onready var settings_panel: PanelContainer = %HostSettingsPanel
 @onready var mission_option: OptionButton = %MissionOption
 @onready var modifier_option: OptionButton = %ModifierOption
@@ -27,11 +37,8 @@ const SUIT_COLORS: Array[Color] = [
 @onready var crew_dummies: Node2D = $CrewDummies
 @onready var player: CharacterBody2D = $Player
 
-var _visibility_toggle_btn: Button = null
-
 func _ready() -> void:
 	settings_panel.visible = false
-	_ensure_visibility_setting_ui()
 	_populate_selectors()
 	EventBus.lobby_updated.connect(_on_lobby_updated)
 	EventBus.telemetry_changed.connect(_refresh_top_bar)
@@ -83,6 +90,29 @@ func _apply_host_permissions() -> void:
 		start_btn.disabled = not is_host
 		if not is_host:
 			start_btn.text = "KURUCU BEKLENİYOR"
+
+func _setup_texture_button(btn: TextureButton) -> void:
+	btn.pivot_offset = btn.size * 0.5
+	btn.mouse_entered.connect(func() -> void:
+		btn.scale = Vector2(1.05, 1.05)
+		btn.modulate = Color(1.14, 1.14, 1.14, 1.0)
+	)
+	btn.mouse_exited.connect(func() -> void:
+		btn.scale = Vector2.ONE
+		btn.modulate = Color.WHITE
+	)
+	btn.button_down.connect(func() -> void:
+		btn.scale = Vector2(0.94, 0.94)
+		btn.modulate = Color(0.82, 0.88, 0.95, 1.0)
+	)
+	btn.button_up.connect(func() -> void:
+		if btn.is_hovered():
+			btn.scale = Vector2(1.05, 1.05)
+			btn.modulate = Color(1.14, 1.14, 1.14, 1.0)
+		else:
+			btn.scale = Vector2.ONE
+			btn.modulate = Color.WHITE
+	)
 
 func _populate_selectors() -> void:
 	mission_option.clear()
@@ -146,13 +176,39 @@ func _on_lobby_updated(players: Array) -> void:
 
 		crew_dummies.add_child(dummy)
 
+	_refresh_helmet_slots(players)
 	_refresh_top_bar()
+
+func _refresh_helmet_slots(players: Array) -> void:
+	player_count_label.text = str(players.size())
+	var slots := helmet_slots.get_children()
+	for i in range(slots.size()):
+		var slot := slots[i] as TextureRect
+		if slot == null:
+			continue
+		if i < players.size():
+			var c: Color = players[i].get("color", SUIT_COLORS[i % SUIT_COLORS.size()])
+			var idx: int = _color_to_helmet_idx(c)
+			var atlas := AtlasTexture.new()
+			atlas.atlas = HUD_PLAYERS_SHEET
+			atlas.region = HELMET_REGIONS[idx]
+			slot.texture = atlas
+			slot.visible = true
+		else:
+			slot.visible = false
+
+func _color_to_helmet_idx(c: Color) -> int:
+	if c.b > 0.7 and c.r < 0.5:
+		return 1 # Mavi
+	if c.r > 0.8 and c.g > 0.7:
+		return 2 # Sarı
+	if c.g > 0.7 and c.r < 0.5:
+		return 3 # Yeşil
+	return 0 # Kırmızı
 
 func _refresh_top_bar() -> void:
 	var m: Dictionary = GameState.current_mission
-	var vis_tag: String = "PUBLIC" if GameState.is_room_public else "PRIVATE"
-	var role_tag: String = "KURUCU" if (GameState.is_room_host or not GameState.is_room_open) else "MİSAFİR"
-	room_info_label.text = "ODA: %s (%s) | %s | OYUNCU: %d/4" % [GameState.room_code, vis_tag, role_tag, GameState.lobby_players.size()]
+	room_info_label.text = "ODA: %s | OYUNCU: %d/4" % [GameState.room_code, GameState.lobby_players.size()]
 	mission_summary_label.text = "GÖREV: %s | BÜTÇE: $%.0fM | ROKET: %s" % [
 		m.get("name", "-"),
 		GameState.budget_m,
