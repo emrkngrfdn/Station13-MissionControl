@@ -87,11 +87,13 @@ position = Vector2(392, 44)
 terminal_type = 0
 prompt_text = "[E] Brifing"
 show_placeholder_visual = false
+beacon_mode = true
 
 [node name="MarketTerminal" parent="Terminals" unique_id=2028336878 instance=ExtResource("4_terminal")]
 position = Vector2(322, 170)
 prompt_text = "[E] Mağaza"
 show_placeholder_visual = false
+beacon_mode = true
 
 [node name="PowerLabTerminal" parent="Terminals" unique_id=419882828 instance=ExtResource("4_terminal")]
 position = Vector2(517, 266)
@@ -99,6 +101,7 @@ scale = Vector2(2.26, 2.26)
 terminal_type = 3
 prompt_text = "[E] Güç Lab"
 show_placeholder_visual = false
+beacon_mode = true
 
 [node name="AssemblyTerminal" parent="Terminals" unique_id=1668347369 instance=ExtResource("4_terminal")]
 position = Vector2(779.99994, 180.99998)
@@ -106,18 +109,21 @@ scale = Vector2(2.765, 2.765)
 terminal_type = 2
 prompt_text = "[E] Monte Et"
 show_placeholder_visual = false
+beacon_mode = true
 
 [node name="DSNTerminal" parent="Terminals" unique_id=1254759518 instance=ExtResource("4_terminal")]
 position = Vector2(997, 94)
 terminal_type = 4
 prompt_text = "[E] DSN Kulesi"
 show_placeholder_visual = false
+beacon_mode = true
 
 [node name="LaunchTerminal" parent="Terminals" unique_id=1562015965 instance=ExtResource("4_terminal")]
 position = Vector2(1195, 68)
 terminal_type = 5
 prompt_text = "[E] Fırlat"
 show_placeholder_visual = false
+beacon_mode = true
 
 [node name="ConveyorSpawnPoint" type="Marker2D" parent="." unique_id=430441505]
 position = Vector2(351, 230)
