@@ -6,25 +6,25 @@
       "mission_ids": ["leo_climate_aqua"],
       "room": "LAUNCH",
       "is_random_crisis": false,
-      "description": "Güneş eşzamanlı kutup yörüngesi (LEO İklim) için hangi fırlatma üssünü kullanacaksınız?",
+      "description": "Güneş eşzamanlı kutup yörüngesi (LEO İklim) için hangi fırlatma üssünü kullanacaksınız? (Vandenberg tam uyumlu ama üs kirası $15M; Florida ücretsiz ama +350 kg yakıt ister.)",
       "options": [
         {
-          "label": "A) Vandenberg AFB (Kaliforniya) — Tam Uyum ($0)",
-          "budget_delta": 0,
+          "label": "A) Vandenberg AFB (Kaliforniya) — Tam Kutup Uyumu (-$15M, +0 kg)",
+          "budget_delta": -15,
           "mass_delta": 0,
           "power_delta": 0,
           "landing_chance_delta": 15,
           "set_launch_site": "vandenberg_afb",
-          "result_note": "Vandenberg kutup yörüngesi için idealdir; yakıt cezası olmadan tam puan!"
+          "result_note": "Vandenberg kutup yörüngesine tam uyum sağladı (-$15M üs maliyeti, yakıt cezası yok, +%15 yörünge uyumu)."
         },
         {
-          "label": "B) Cape Canaveral (Florida) — Eğiklik Cezası (+350 kg)",
-          "budget_delta": -25,
+          "label": "B) Cape Canaveral (Florida) — Ek Üs Maliyeti Yok ($0, +350 kg Yakıt)",
+          "budget_delta": 0,
           "mass_delta": 350,
           "power_delta": 0,
-          "landing_chance_delta": -15,
+          "landing_chance_delta": -10,
           "set_launch_site": "cape_canaveral",
-          "result_note": "Florida'dan kutup yörüngesine çıkmak için +350 kg ek yakıt ve -$25M maliyet gerekti!"
+          "result_note": "Florida üssü ek bütçe harcamadan ($0) seçildi; ancak kutup yörüngesi düzeltmesi için +350 kg ek yakıt gerekti."
         }
       ]
     },
@@ -37,29 +37,32 @@
       "description": "Yörünge ve tutulma (eclipse) sırasında güneş açısı değişecek. Mühendislik ekibi nasıl bir kurulum yapmalı?",
       "options": [
         {
-          "label": "A) Sabit Hafif Panel Kur ($0 Ek Maliyet)",
-          "budget_delta": 0,
+          "label": "A) Sabit Hafif Panel Kur (-$10M, +5kg | -30W Güç, -%15 İniş — Ucuz & Hafif)",
+          "budget_delta": -10,
           "mass_delta": 5,
           "power_delta": -30,
           "landing_chance_delta": -15,
-          "result_note": "Ek maliyet harcanmadı ama gölge geçişinde güç düştüğü için risk arttı."
+          "science_delta": 0,
+          "result_note": "Ekonomik sabit panel kuruldu (-$10M, +5kg) ama gölge geçişinde -30W güç düştü."
         },
         {
-          "label": "B) Çift Eksenli Takip Mekanizması (-$25M, +20kg)",
+          "label": "B) Çift Eksenli Güneş Takibi (-$25M, +20kg | +120W Güç, +%20 İniş, +80 Bilim)",
           "budget_delta": -25,
           "mass_delta": 20,
-          "power_delta": 60,
+          "power_delta": 120,
           "landing_chance_delta": 20,
-          "result_note": "Kesintisiz güç sağlandı ancak kütle ve maliyet arttı."
+          "science_delta": 80,
+          "result_note": "Çift eksenli takip ile kesintisiz +120W güç, +%20 iniş güvenliği ve +80 bilim verimi sağlandı!"
         },
         {
-          "label": "C) Mevcut Sisteme Yüksek Akım Overclock ($0)",
-          "budget_delta": 0,
+          "label": "C) Güç Regülatörü Overclock (-$5M, +0kg | +45W Güç, -%5 İniş — Kütle Eklemez)",
+          "budget_delta": -5,
           "mass_delta": 0,
-          "power_delta": 40,
+          "power_delta": 45,
           "landing_chance_delta": -5,
+          "science_delta": 0,
           "triggers_crisis": "OVERHEAT",
-          "result_note": "Ekstra güç üretildi fakat Power Lab odasında soğutma yükü arttı!"
+          "result_note": "Ağırlık eklemeden (-$5M) +45W güç üretildi fakat Power Lab'da ısınma uyarısı oluştu!"
         }
       ]
     },
@@ -123,7 +126,7 @@
       "mission_ids": ["all"],
       "room": "POWER_LAB",
       "is_random_crisis": true,
-      "time_limit_sec": 12.0,
+      "time_limit_sec": 22.0,
       "timeout_mode": "fail_penalty",
       "timeout_outcome": {
         "budget_delta": 0,
@@ -163,7 +166,7 @@
       "mission_ids": ["all"],
       "room": "ASSEMBLY",
       "is_random_crisis": true,
-      "time_limit_sec": 12.0,
+      "time_limit_sec": 22.0,
       "timeout_mode": "fail_penalty",
       "timeout_outcome": {
         "budget_delta": 0,
@@ -203,7 +206,7 @@
       "mission_ids": ["mars_perseverance", "lunar_pole_lro", "leo_climate_aqua"],
       "room": "POWER_LAB",
       "is_random_crisis": true,
-      "time_limit_sec": 14.0,
+      "time_limit_sec": 25.0,
       "timeout_mode": "random",
       "reference": "2018 Opportunity ve 2022 InSight güneş paneli toz kaplanması",
       "description": "[Gerçek Referans: 2018 Opportunity & 2022 InSight Görev Sonu]\nDev bir toz/partikül fırtınası başladı; gökyüzü karardı ve güneş paneli verimi %90 düştü!",
@@ -236,7 +239,7 @@
       "mission_ids": ["all"],
       "room": "DSN_COMMS",
       "is_random_crisis": true,
-      "time_limit_sec": 14.0,
+      "time_limit_sec": 25.0,
       "timeout_mode": "random",
       "reference": "Galileo (Jüpiter) şemsiye anten sıkışması ve Cassini iletişim aksaklıkları",
       "description": "[Gerçek Referans: Galileo Jüpiter Sondası Ana Anten Arızası]\nDünya ile Megabit seviyesinde veri aktarımı yapan ana antenin yönelim motoru mekanik olarak sıkıştı!",
@@ -269,7 +272,7 @@
       "mission_ids": ["all"],
       "room": "BRIEFING",
       "is_random_crisis": true,
-      "time_limit_sec": 10.0,
+      "time_limit_sec": 20.0,
       "timeout_mode": "fail_penalty",
       "timeout_outcome": {
         "budget_delta": 0,

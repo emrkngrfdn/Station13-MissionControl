@@ -30,10 +30,14 @@ static func validate_build(
 	net_power_w: float,
 	power_cycling_enabled: bool = false,
 	junocam_degraded: bool = false,
-	power_lab_decided: bool = true
+	power_lab_decided: bool = true,
+	briefing_completed: bool = true
 ) -> Dictionary:
 	var errors: Array[String] = []
 	var warnings: Array[String] = []
+
+	if not briefing_completed:
+		errors.append("BRİFİNG EKSİK: Fırlatma öncesi 1. Brifing Odası terminalinden görev brifingini tamamlayın!")
 
 	if not power_lab_decided:
 		errors.append("GÜÇ LAB KARARI EKSİK: Fırlatma öncesi Güç & Termal Lab terminalinden güç konfigürasyonunu seçin!")
@@ -140,7 +144,10 @@ static func evaluate_mission_outcome(
 	budget_mult_score: float = 1.0,
 	power_cycling_enabled: bool = false,
 	junocam_degraded: bool = false,
-	purchased_parts: Array = []
+	purchased_parts: Array = [],
+	power_lab_decided: bool = true,
+	briefing_completed: bool = true,
+	budget_m: float = 0.0
 ) -> Dictionary:
 	var build_check: Dictionary = validate_build(
 		mission,
@@ -150,11 +157,15 @@ static func evaluate_mission_outcome(
 		total_mass_kg,
 		net_power_w,
 		power_cycling_enabled,
-		junocam_degraded
+		junocam_degraded,
+		power_lab_decided,
+		briefing_completed
 	)
 	var req_failures: Array[String] = evaluate_requirements(mission, installed_parts)
 
 	var errors: Array[String] = []
+	if budget_m < 0.0:
+		errors.append("BÜTÇE AŞIMI: Bütçe eksiye düştü ($%.0fM)!" % budget_m)
 	errors.append_array(build_check["errors"])
 	errors.append_array(req_failures)
 
@@ -186,7 +197,7 @@ static func evaluate_mission_outcome(
 	if success:
 		final_score = int(round((science_score + downloaded_data_gb * 10.0) * budget_mult_score))
 
-	return {
+	var report: Dictionary = {
 		"success": success,
 		"score": final_score,
 		"science_score": science_score,
@@ -195,3 +206,4 @@ static func evaluate_mission_outcome(
 		"warnings": warnings,
 		"summary": "GÖREV BAŞARILI" if success else "GÖREV BAŞARISIZ"
 	}
+	return report

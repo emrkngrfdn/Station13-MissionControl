@@ -156,9 +156,9 @@
     {
       "id": "cape_canaveral",
       "name": "Cape Canaveral (Florida)",
-      "description": "Ekvatoral, Ay ve gezegenlerarası (Derin Uzay) fırlatmalar için idealdir.",
+      "description": "Ekvatoral, Ay ve gezegenlerarası (Derin Uzay) fırlatmalar için idealdir; ticari slotlarla bütçe avantajı sağlar.",
       "penalty_by_mission": {
-        "leo_climate_aqua": { "mass_penalty_kg": 350.0, "cost_penalty_m": 25, "note": "Kutup yörüngesine oturmak için ekstra yakıt/kütle cezası (+350 kg)!" }
+        "leo_climate_aqua": { "mass_penalty_kg": 350.0, "cost_penalty_m": 0, "note": "Kutup yörüngesine oturmak için ekstra yakıt/kütle cezası (+350 kg)!" }
       }
     }
   ],

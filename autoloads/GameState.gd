@@ -55,6 +55,7 @@ var junocam_degraded: bool = false
 var ssd_used_gb: float = 0.0
 var ssd_capacity_gb: float = 64.0
 var dsn_locked: bool = false
+var briefing_completed: bool = false
 
 var purchased_parts: Array = []
 var installed_parts: Array = []
@@ -527,6 +528,7 @@ func setup_mission(mission_idx: int, modifier_idx: int, broadcast: bool = true) 
 	junocam_degraded = false
 	ssd_used_gb = 0.0
 	dsn_locked = false
+	briefing_completed = false
 	recalculate()
 	if broadcast and is_network_active and multiplayer.is_server():
 		_broadcast_lobby_state()
@@ -614,6 +616,7 @@ func start_mission() -> void:
 	elapsed_time_sec = 0.0
 	downloaded_data_gb = 0.0
 	ssd_used_gb = 12.0
+	briefing_completed = false
 	_crisis_timer = 0.0
 	_triggered_crisis_ids.clear()
 	_next_crisis_interval = randf_range(CRISIS_MIN_INTERVAL_SEC, CRISIS_MAX_INTERVAL_SEC)
@@ -810,7 +813,11 @@ func apply_side_quest_option(opt: Dictionary, quest_id: String = "") -> void:
 				l_delta -= 35
 				note = "SİSTEM ÇÖKTÜ: Tasarımda yedek bilgisayar için aviyonik parça veya bütçe ayrılmadığı için Cold-Backup devreye giremedi (-60W, -%35 İniş)!"
 
-	budget_m += b_delta
+	if not is_random_quest_budget_valid(opt):
+		EventBus.status_message.emit("BÜTÇE YETERSİZ! Bu işlem için yeterli bütçeniz yok (Mevcut: $%.0fM)." % budget_m, true)
+		return
+
+	budget_m = max(0.0, budget_m + b_delta)
 	_quest_mass_delta += m_delta
 	_quest_power_delta += p_delta
 	_quest_landing_delta += l_delta
@@ -880,6 +887,15 @@ func recalculate() -> void:
 	landing_success_chance = clamp(landing_success_chance, 0, 100)
 	EventBus.telemetry_changed.emit()
 
+func is_random_quest_budget_valid(opt: Dictionary) -> bool:
+	var b_delta: float = float(opt.get("budget_delta", 0.0))
+	if b_delta < 0.0 and budget_m + b_delta < 0.0:
+		return false
+	return true
+
+func mark_briefing_completed() -> void:
+	briefing_completed = true
+
 func is_power_lab_decided() -> bool:
 	var quests: Array = get_available_side_quests_for_mission()
 	for q in quests:
@@ -899,7 +915,8 @@ func validate_launch() -> Dictionary:
 		net_power_w,
 		power_cycling_enabled,
 		junocam_degraded,
-		is_power_lab_decided()
+		is_power_lab_decided(),
+		briefing_completed
 	)
 
 func complete_mission() -> Dictionary:
@@ -918,7 +935,10 @@ func complete_mission() -> Dictionary:
 		score_mult,
 		power_cycling_enabled,
 		junocam_degraded,
-		purchased_parts
+		purchased_parts,
+		is_power_lab_decided(),
+		briefing_completed,
+		budget_m
 	)
 	if bool(report.get("success", false)):
 		LeaderboardManager.add_record(
