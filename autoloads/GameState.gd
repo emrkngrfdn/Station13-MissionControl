@@ -897,8 +897,13 @@ func apply_side_quest_option(opt: Dictionary, quest_id: String = "") -> void:
 			elif budget_m >= 15.0:
 				b_delta -= 15.0
 				m_delta += 10.0
-				l_delta += 15
-				note = "COLD-BACKUP DEVREDE: Yedek bilgisayar için ayrılan -$15M ve +10kg rezerv kullanıldı; görev hasarsız devam ediyor (+%15 İniş)."
+				if randf() < 0.55:
+					l_delta += 10
+					note = "COLD-BACKUP ACİL YAMASI TUTTU: Yedek donanım yoktu ancak -$15M ve +10kg rezerv ile sistem kurtarıldı (+%10 İniş)."
+				else:
+					p_delta -= 45.0
+					l_delta -= 25
+					note = "COLD-BACKUP BAŞARISIZ (%45 Risk): Aviyonik modül olmadığı için -$15M harcanmasına rağmen yedek sistem senkronize olamadı (-45W, -%25 İniş)!"
 			else:
 				p_delta -= 60.0
 				l_delta -= 35

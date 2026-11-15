@@ -41,6 +41,7 @@ var _pending_result_msg: String = ""
 
 func _ready() -> void:
 	visible = false
+	z_index = 60
 	feedback_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_close_btn = get_node_or_null("VBox/Header/CloseBtn") as Button
 	_ensure_extra_ui()
@@ -139,15 +140,18 @@ func _reset_quests() -> void:
 	_matched_wires.clear()
 
 func _on_random_crisis_triggered(quest_data: Dictionary) -> void:
-	if visible:
+	if visible and bool(_current_quest.get("is_random_crisis", false)) and not _is_resolving:
 		return
 	var q_id: String = String(quest_data.get("id", ""))
 	if q_id != "" and _resolved_quest_ids.has(q_id):
 		return
+	_orbit_game_active = false
+	_dragging_wire_id = -1
+	move_to_front()
 	open_quest(quest_data)
 
 func _on_terminal_opened(terminal_name: String) -> void:
-	if visible:
+	if visible and bool(_current_quest.get("is_random_crisis", false)) and not _is_resolving:
 		return
 	if terminal_name == "BRIEFING":
 		GameState.mark_briefing_completed()
@@ -170,7 +174,33 @@ func _on_terminal_opened(terminal_name: String) -> void:
 					return
 		if not _wiring_done:
 			visible = true
+			move_to_front()
 			_build_power_wiring_ui(_pending_result_msg if _pending_result_msg != "" else "Güç kaynağı seçildi.")
+		else:
+			_open_power_lab_summary()
+
+func _open_power_lab_summary() -> void:
+	_current_quest = {}
+	_is_resolving = true
+	_has_timer = false
+	visible = true
+	move_to_front()
+	if _timer_box != null:
+		_timer_box.visible = false
+	if _close_btn != null:
+		_close_btn.visible = true
+	if _ack_btn != null:
+		_ack_btn.visible = true
+	title_label.text = "GÜÇ LABORATUVARI: SİSTEM AKTİF"
+	title_label.add_theme_color_override("font_color", Color(0.45, 0.95, 0.65))
+	desc_label.text = "Güç kaynağı kararı ve sigorta/bara kablo bağlantıları tamamlandı.\n• Net Güç Dengesi: %+.0f W\n• Batarya Durumu: %%%.0f" % [
+		GameState.net_power_w,
+		GameState.battery_charge_pct
+	]
+	for child in options_box.get_children():
+		child.queue_free()
+	feedback_label.add_theme_color_override("font_color", Color(0.55, 0.9, 1.0))
+	feedback_label.text = "Güç Lab işlemleri tamam! Ek güç panelleri veya bataryalar için Tedarik Mağazası'nı kullanabilirsin."
 
 func _open_briefing_summary() -> void:
 	_current_quest = {}
