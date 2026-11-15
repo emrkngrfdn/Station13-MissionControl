@@ -349,7 +349,7 @@ func set_host_color(new_color: Color) -> void:
 func leave_room() -> void:
 	if is_room_host and room_code != "":
 		_remove_active_room_entry(room_code)
-	if multiplayer.multiplayer_peer != null:
+	if is_inside_tree() and multiplayer != null and multiplayer.multiplayer_peer != null:
 		multiplayer.multiplayer_peer.close()
 		multiplayer.multiplayer_peer = null
 	is_network_active = false

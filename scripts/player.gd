@@ -23,7 +23,6 @@ func _ready() -> void:
 	EventBus.lobby_updated.connect(_on_lobby_updated)
 	_sync_color_row()
 
-<<<<<<< HEAD
 func _on_lobby_updated(_players: Array) -> void:
 	_sync_color_row()
 
@@ -43,13 +42,8 @@ func _color_to_row(c: Color) -> int:
 	return 0 # Kırmızı
 
 func _physics_process(delta: float) -> void:
-	var input_dir := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
-	var speed_mult := 0.80 if carried_box != null else 1.0
-=======
-func _physics_process(_delta: float) -> void:
 	var input_dir: Vector2 = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 	var speed_mult: float = 0.80 if carried_box != null else 1.0
->>>>>>> origin/zuley
 	velocity = input_dir * base_speed * speed_mult
 	move_and_slide()
 	if input_dir.length() > 0.1 and get_slide_collision_count() > 0:
