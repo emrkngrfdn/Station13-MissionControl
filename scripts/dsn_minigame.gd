@@ -1,6 +1,7 @@
 extends PanelContainer
 
 const STATIONS: Array[String] = ["GOLDSTONE (ABD)", "MADRID (İSPANYA)", "CANBERRA (AVUSTRALYA)"]
+const STATION_DEFAULT_CENTERS: Array[float] = [24.0, 52.0, 78.0]
 
 @onready var station_label: Label = %StationLabel
 @onready var stats_label: Label = %DSNStatsLabel
@@ -10,59 +11,173 @@ const STATIONS: Array[String] = ["GOLDSTONE (ABD)", "MADRID (İSPANYA)", "CANBER
 var _station_timer: float = 0.0
 var _station_idx: int = 0
 var _drift_dir: float = 1.0
+var _target_center: float = 24.0
+var _target_half_width: float = 11.0
 var _tip_label: Label = null
+var _goal_label: Label = null
+var _goal_bar: ProgressBar = null
+var _band_bar: Control = null
+var _zone_rect: ColorRect = null
+var _needle_rect: ColorRect = null
+var _updating_slider_from_net: bool = false
+var _net_sync_timer: float = 0.0
 
 func _ready() -> void:
 	visible = false
 	_ensure_tip_ui()
 	EventBus.terminal_opened.connect(_on_terminal_opened)
+	EventBus.telemetry_changed.connect(_on_telemetry_synced)
+	if freq_slider != null and not freq_slider.value_changed.is_connected(_on_slider_value_changed):
+		freq_slider.value_changed.connect(_on_slider_value_changed)
 
 func _ensure_tip_ui() -> void:
 	var vbox: Node = get_node_or_null("VBox")
 	if vbox == null or _tip_label != null:
 		return
+	_goal_label = Label.new()
+	_goal_label.add_theme_font_size_override("font_size", 12)
+	vbox.add_child(_goal_label)
+
+	_goal_bar = ProgressBar.new()
+	_goal_bar.min_value = 0.0
+	_goal_bar.max_value = 100.0
+	_goal_bar.value = 0.0
+	_goal_bar.custom_minimum_size = Vector2(0, 16)
+	_goal_bar.show_percentage = true
+	vbox.add_child(_goal_bar)
+
+	var stats_idx: int = stats_label.get_index() if stats_label != null else 0
+	vbox.move_child(_goal_label, stats_idx)
+	vbox.move_child(_goal_bar, stats_idx + 1)
+
+	_band_bar = Control.new()
+	_band_bar.custom_minimum_size = Vector2(0, 14)
+	_band_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var bg_rect: ColorRect = ColorRect.new()
+	bg_rect.color = Color(0.08, 0.12, 0.2, 1.0)
+	bg_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_band_bar.add_child(bg_rect)
+
+	_zone_rect = ColorRect.new()
+	_zone_rect.color = Color(0.22, 0.78, 0.42, 0.88)
+	_zone_rect.anchor_top = 0.0
+	_zone_rect.anchor_bottom = 1.0
+	_band_bar.add_child(_zone_rect)
+
+	_needle_rect = ColorRect.new()
+	_needle_rect.color = Color(1.0, 0.92, 0.3, 1.0)
+	_needle_rect.anchor_top = 0.0
+	_needle_rect.anchor_bottom = 1.0
+	_needle_rect.offset_left = -2.0
+	_needle_rect.offset_right = 2.0
+	_band_bar.add_child(_needle_rect)
+
+	var slider_idx: int = freq_slider.get_index() if freq_slider != null else vbox.get_child_count()
+	vbox.add_child(_band_bar)
+	vbox.move_child(_band_bar, slider_idx)
+
 	_tip_label = Label.new()
 	_tip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_tip_label.add_theme_font_size_override("font_size", 10)
+	_tip_label.add_theme_font_size_override("font_size", 8)
 	_tip_label.add_theme_color_override("font_color", Color(0.55, 0.88, 1.0))
 	vbox.add_child(_tip_label)
+
+func _pick_new_target_for_station() -> void:
+	var base_c: float = STATION_DEFAULT_CENTERS[_station_idx % STATION_DEFAULT_CENTERS.size()]
+	var candidate: float = clampf(base_c + randf_range(-8.0, 8.0), 15.0, 85.0)
+	if abs(candidate - _target_center) < 18.0:
+		candidate = clampf(_target_center + (26.0 if _target_center < 50.0 else -26.0), 15.0, 85.0)
+	_target_center = candidate
+
+func _on_slider_value_changed(val: float) -> void:
+	if _updating_slider_from_net:
+		return
+	GameState.sync_dsn_input(val)
+
+func _on_telemetry_synced() -> void:
+	if not visible:
+		return
+	if GameState.is_network_active and not GameState.is_room_host:
+		_station_idx = GameState.dsn_station_idx % STATIONS.size()
+		_target_center = GameState.dsn_target_center
+		_station_timer = GameState.dsn_station_timer
+	if abs(freq_slider.value - GameState.dsn_freq_value) > 0.25:
+		_updating_slider_from_net = true
+		freq_slider.value = GameState.dsn_freq_value
+		_updating_slider_from_net = false
 
 func _on_terminal_opened(terminal_name: String) -> void:
 	if terminal_name == "DSN_COMMS":
 		visible = true
-		freq_slider.value = 50.0
-		_refresh_labels(true)
+		if not GameState.is_network_active or GameState.is_room_host:
+			_station_timer = GameState.dsn_station_timer
+			_station_idx = GameState.dsn_station_idx % STATIONS.size()
+			_target_center = GameState.dsn_target_center
+			if _target_center <= 0.0:
+				_pick_new_target_for_station()
+		else:
+			_station_timer = GameState.dsn_station_timer
+			_station_idx = GameState.dsn_station_idx % STATIONS.size()
+			_target_center = GameState.dsn_target_center
+		_updating_slider_from_net = true
+		freq_slider.value = GameState.dsn_freq_value
+		_updating_slider_from_net = false
+		_refresh_labels(abs(freq_slider.value - _target_center) <= _target_half_width)
+
+func _get_effective_gb_per_sec() -> float:
+	var mbps: float = max(0.0, GameState.downlink_mbps)
+	return 2.5 + clampf(sqrt(mbps) * 0.55, 0.0, 7.0)
 
 func _process(delta: float) -> void:
 	if not visible:
 		return
 
-	_station_timer += delta
-	if _station_timer >= 6.0:
-		_station_timer = 0.0
-		_station_idx = (_station_idx + 1) % STATIONS.size()
-
-	# Sinyal frekansı hafifçe kayar; oyuncu 38..62 yeşil bölgesinde tutmaya çalışır
-	if randf() < 0.03:
-		_drift_dir = -_drift_dir
-	freq_slider.value = clamp(freq_slider.value + _drift_dir * 18.0 * delta, 0.0, 100.0)
+	var is_authority: bool = (not GameState.is_network_active) or GameState.is_room_host
 
 	if Input.is_action_pressed("ui_left"):
 		freq_slider.value = clamp(freq_slider.value - 55.0 * delta, 0.0, 100.0)
 	if Input.is_action_pressed("ui_right"):
 		freq_slider.value = clamp(freq_slider.value + 55.0 * delta, 0.0, 100.0)
 
-	var locked: bool = freq_slider.value >= 38.0 and freq_slider.value <= 62.0
+	if is_authority:
+		_station_timer += delta
+		if _station_timer >= 6.0:
+			_station_timer = 0.0
+			_station_idx = (_station_idx + 1) % STATIONS.size()
+			_pick_new_target_for_station()
+
+		# Sinyal frekansı hafifçe kayar; 4 oyuncu da oku hedef bandına kaydırabilir
+		if randf() < 0.03:
+			_drift_dir = -_drift_dir
+		_updating_slider_from_net = true
+		freq_slider.value = clamp(freq_slider.value + _drift_dir * 18.0 * delta, 0.0, 100.0)
+		GameState.dsn_freq_value = freq_slider.value
+		_updating_slider_from_net = false
+	else:
+		_station_idx = GameState.dsn_station_idx % STATIONS.size()
+		_target_center = GameState.dsn_target_center
+		_station_timer = GameState.dsn_station_timer
+
+	var locked: bool = abs(freq_slider.value - _target_center) <= _target_half_width
 	var window_remaining: float = max(0.0, 6.0 - _station_timer)
 	var window_open: bool = window_remaining > 0.8
-	GameState.dsn_locked = locked and window_open
 
-	if locked and window_open:
-		var speed_mbps: float = max(GameState.downlink_mbps, 6.0)
-		var transferred_gb: float = (speed_mbps / 8.0) * delta
-		GameState.downloaded_data_gb += transferred_gb
-		GameState.ssd_used_gb = max(0.0, GameState.ssd_used_gb - transferred_gb * 0.5)
-		EventBus.telemetry_changed.emit()
+	if is_authority:
+		var prev_locked: bool = GameState.dsn_locked
+		GameState.dsn_locked = locked and window_open
+		if locked and window_open:
+			var transferred_gb: float = _get_effective_gb_per_sec() * delta
+			GameState.downloaded_data_gb += transferred_gb
+			GameState.ssd_used_gb = max(0.0, GameState.ssd_used_gb - transferred_gb * 0.5)
+			GameState.recalculate()
+		elif prev_locked != GameState.dsn_locked:
+			GameState.recalculate()
+
+		_net_sync_timer += delta
+		if GameState.is_network_active and _net_sync_timer >= 0.1:
+			_net_sync_timer = 0.0
+			GameState.sync_dsn_state(_station_idx, _target_center, _station_timer, GameState.downloaded_data_gb, GameState.ssd_used_gb, GameState.dsn_locked)
 
 	_refresh_labels(locked, window_open, window_remaining)
 
@@ -70,24 +185,47 @@ func _refresh_labels(locked: bool, window_open: bool = true, window_remaining: f
 	var win_state: String = "AÇIK (%.1fs)" % window_remaining if window_open else "GEÇİŞ (EL DEĞİŞİMİ)"
 	station_label.text = "İSTASYON: %s | GÖRÜŞ PENCERESİ: %s" % [STATIONS[_station_idx], win_state]
 	var ssd_pct: int = int(round((GameState.ssd_used_gb / max(1.0, GameState.ssd_capacity_gb)) * 100.0))
-	var eff_mbps: float = max(GameState.downlink_mbps, 6.0)
-	var gb_per_sec: float = eff_mbps / 8.0
-	stats_label.text = "İNDİRİLEN: %.1f GB (%.1f GB/sn) | SSD: %%%d (%.1f/%.0f GB) | ANTEN: %.0f Mbps" % [
-		GameState.downloaded_data_gb,
+	var gb_per_sec: float = _get_effective_gb_per_sec()
+	var target_gb: float = GameState.get_target_download_gb()
+	var downloaded_gb: float = GameState.downloaded_data_gb
+	var goal_pct: float = clampf((downloaded_gb / max(1.0, target_gb)) * 100.0, 0.0, 100.0)
+	if _goal_label != null:
+		if downloaded_gb >= target_gb:
+			_goal_label.text = "VERİ HEDEFİ TAMAMLANDI: %.1f / %.0f GB (%%%d) - Fırlatma için hazır!" % [downloaded_gb, target_gb, int(round(goal_pct))]
+			_goal_label.add_theme_color_override("font_color", Color(0.35, 0.95, 0.5))
+		else:
+			_goal_label.text = "GÖREV VERİ HEDEFİ: %.1f / %.0f GB (%%%d) | İndirilecek: %.1f GB" % [downloaded_gb, target_gb, int(round(goal_pct)), max(0.0, target_gb - downloaded_gb)]
+			_goal_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35))
+	if _goal_bar != null:
+		_goal_bar.value = goal_pct
+	stats_label.text = "İNDİRİLEN: %.1f/%.0f GB (%.1f GB/sn) | SSD: %%%d (%.1f/%.0f GB) | ANTEN: %.0f Mbps" % [
+		downloaded_gb,
+		target_gb,
 		gb_per_sec,
 		ssd_pct,
 		GameState.ssd_used_gb,
 		GameState.ssd_capacity_gb,
 		GameState.downlink_mbps
 	]
+	if _zone_rect != null:
+		_zone_rect.anchor_left = clampf((_target_center - _target_half_width) / 100.0, 0.0, 1.0)
+		_zone_rect.anchor_right = clampf((_target_center + _target_half_width) / 100.0, 0.0, 1.0)
+	if _needle_rect != null:
+		var needle_ratio: float = clampf(freq_slider.value / 100.0, 0.0, 1.0)
+		_needle_rect.anchor_left = needle_ratio
+		_needle_rect.anchor_right = needle_ratio
+
+	var t_min: float = max(0.0, _target_center - _target_half_width)
+	var t_max: float = min(100.0, _target_center + _target_half_width)
 	if not window_open:
-		lock_status_label.text = "YER İSTASYONU UFUK DEĞİŞİMİ — YENİ ANTEN KİLİTLENİYOR..."
+		lock_status_label.text = "YER İSTASYONU UFUK DEĞİŞİMİ — YENİ İSTASYON GELİYOR..."
 		lock_status_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.35))
 	elif locked:
-		lock_status_label.text = "SİNYAL KİLİTLENDİ (LOCK) — UYDU BELLEĞİNDEN VERİ AKTARILIYOR"
+		lock_status_label.text = "SİNYAL KİLİTLENDİ (%.0f-%.0f) — VERİ AKTARILIYOR!" % [t_min, t_max]
 		lock_status_label.add_theme_color_override("font_color", Color(0.35, 0.95, 0.55))
 	else:
-		lock_status_label.text = "SİNYAL KAYDI! FREKANSI ORTADA (38-62) TUTUN"
+		var dir_hint: String = "SAĞA KAYDIR >>" if freq_slider.value < t_min else "<< SOLA KAYDIR"
+		lock_status_label.text = "SİNYAL KAYDI! HEDEF BANT: %.0f-%.0f (%s)" % [t_min, t_max, dir_hint]
 		lock_status_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.35))
 
 	_refresh_upgrade_tip()
@@ -95,18 +233,17 @@ func _refresh_labels(locked: bool, window_open: bool = true, window_remaining: f
 func _refresh_upgrade_tip() -> void:
 	if _tip_label == null:
 		return
-	var has_ka: bool = GameState.has_installed_tag("comms_kaband")
-	var has_s: bool = GameState.has_installed_tag("comms_sband")
+	var mbps: float = GameState.downlink_mbps
 
-	if has_ka:
+	if mbps >= 100.0:
 		_tip_label.add_theme_color_override("font_color", Color(0.45, 0.95, 0.65))
-		_tip_label.text = "ANTEN DURUMU: Ka-Band Derin Uzay Çanağı (150 Mbps) takılı — Maksimum indirme hızındasın!"
-	elif has_s:
+		_tip_label.text = "ANTEN DURUMU: Yüksek hızlı anten aktif (%.0f Mbps) — İndirme hızın maksimum seviyede!" % mbps
+	elif mbps > 0.0:
 		_tip_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
-		_tip_label.text = "HIZ ARTIRMA İPUCU: Şu an S-Band Anten (5 Mbps) takılı. 150 Mbps hıza çıkmak için Mağaza'dan 'Ka-Band Derin Uzay Çanağı' alıp Montaj Hangarı'nda tak!"
+		_tip_label.text = "HIZ ARTIRMA İPUCU: Mevcut anten hızı %.0f Mbps. İndirme hızını artırmak için daha güçlü bir iletişim anteni kullanabilirsin." % mbps
 	else:
 		_tip_label.add_theme_color_override("font_color", Color(0.55, 0.88, 1.0))
-		_tip_label.text = "HIZ ARTIRMA İPUCU: Henüz anten takılı değil (Temel 0.8 GB/sn). Hızlandırmak için Mağaza'dan 'S-Band Anten' (5 Mbps) veya 'Ka-Band Derin Uzay Çanağı' (150 Mbps) alıp Montaj Hangarı'nda tak!"
+		_tip_label.text = "HIZ ARTIRMA İPUCU: Şu an temel hızdasın. Veri indirme hızını artırmak için daha yüksek Mbps'li bir anten takabilirsin."
 
 func _on_left_pressed() -> void:
 	freq_slider.value = clamp(freq_slider.value - 12.0, 0.0, 100.0)

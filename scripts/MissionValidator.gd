@@ -48,16 +48,19 @@ static func validate_build(
 		warnings.append(String(site_penalty.get("note", "Fırlatma üssü yörünge cezası uygulanıyor.")))
 
 	var rocket_cap: float = float(rocket.get("max_mass_kg", 0.0))
+	var mission_max_mass: float = float(mission.get("max_mass_kg", 999999.0))
+	if rocket.is_empty() or rocket_cap <= 0.0:
+		rocket_cap = mission_max_mass
 	if effective_mass_kg > rocket_cap:
 		errors.append("Roket kapasitesi aşıldı: %.1f kg / %.1f kg (%s)" % [
 			effective_mass_kg, rocket_cap, String(rocket.get("name", "Roket"))
 		])
-
-	var mission_max_mass: float = float(mission.get("max_mass_kg", 999999.0))
-	if effective_mass_kg > mission_max_mass:
-		errors.append("Görev kütle sınırı aşıldı: %.1f kg / %.1f kg" % [
-			effective_mass_kg, mission_max_mass
+	if rocket_cap > mission_max_mass * 5.0:
+		errors.append("GÖREV UYUMSUZLUĞU: %s (%.0f kg) bu görevin yük sınıfına uygun değil (aşırı büyük roket)!" % [
+			String(rocket.get("name", "Seçili roket")), rocket_cap
 		])
+	elif rocket_cap > mission_max_mass * 1.5:
+		warnings.append("Ağır sınıf roket kullanılıyor; ekstra bütçe harcandı.")
 
 	var distance_au: float = float(mission.get("distance_au", 1.0))
 	if distance_au > 1.2 and not bool(rocket.get("deep_space", false)):
@@ -189,9 +192,9 @@ static func evaluate_mission_outcome(
 				cnt, String(buy_names[pid])
 			])
 
-	var success: bool = errors.is_empty() and landing_success_chance >= 50
-	if errors.is_empty() and landing_success_chance < 50:
-		errors.append("İniş/operasyon başarı oranı yetersiz kaldı (%%%d)." % landing_success_chance)
+	var success: bool = errors.is_empty() and landing_success_chance >= 60
+	if errors.is_empty() and landing_success_chance < 60:
+		errors.append("İniş/operasyon başarı oranı yetersiz kaldı (%%%d — en az %%60 gerekli)." % landing_success_chance)
 
 	var final_score: int = 0
 	if success:

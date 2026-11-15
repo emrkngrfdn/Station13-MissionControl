@@ -27,10 +27,9 @@ func _on_lobby_updated(_players: Array) -> void:
 	_sync_color_row()
 
 func _sync_color_row() -> void:
-	if GameState.lobby_players.size() > 0:
-		var c: Color = GameState.lobby_players[0].get("color", Color.CORAL)
-		_row_idx = _color_to_row(c)
-		_update_sprite_frame(0)
+	var c: Color = GameState.get_local_player_color()
+	_row_idx = _color_to_row(c)
+	_update_sprite_frame(0)
 
 func _color_to_row(c: Color) -> int:
 	if c.b > 0.7 and c.r < 0.5:
@@ -107,12 +106,12 @@ func _physics_process(delta: float) -> void:
 		_update_sprite_frame(0)
 
 func _apply_corner_nudge(dir: Vector2, step_len: float) -> void:
-	var perp := Vector2(-dir.y, dir.x)
+	var perp: Vector2 = Vector2(-dir.y, dir.x)
 	var probe: Vector2 = dir * maxf(step_len, 2.5)
 	for d: float in [1.5, 3.0, 4.5, 6.0]:
-		var clear_pos := not test_move(global_transform.translated(perp * d), probe)
-		var clear_neg := not test_move(global_transform.translated(-perp * d), probe)
-		var nudge_dir := Vector2.ZERO
+		var clear_pos: bool = not test_move(global_transform.translated(perp * d), probe)
+		var clear_neg: bool = not test_move(global_transform.translated(-perp * d), probe)
+		var nudge_dir: Vector2 = Vector2.ZERO
 		if clear_pos and not clear_neg:
 			nudge_dir = perp
 		elif clear_neg and not clear_pos:
@@ -133,11 +132,50 @@ func _update_sprite_frame(col: int) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_accept"):
 		try_interact()
+	elif event is InputEventKey:
+		var ke: InputEventKey = event as InputEventKey
+		if ke.pressed and not ke.echo and (ke.keycode == KEY_E or ke.physical_keycode == KEY_E):
+			try_interact()
+
+func _find_nearest_interactable() -> Node:
+	var best_node: Node = null
+	var best_dist: float = 42.0
+	var foot_pos: Vector2 = global_position + Vector2(0, 6)
+
+	if carried_box != null and is_instance_valid(carried_box):
+		for t in get_tree().get_nodes_in_group("terminal"):
+			if t is Node2D and int(t.get("terminal_type")) == 2: # ASSEMBLY
+				var d_asm: float = (t as Node2D).global_position.distance_to(foot_pos)
+				if d_asm <= 46.0:
+					return t
+
+	if carried_box == null:
+		for b in get_tree().get_nodes_in_group("cargo_box"):
+			if b is Node2D and is_instance_valid(b) and b.get("carrier") == null:
+				var d_box: float = (b as Node2D).global_position.distance_to(foot_pos)
+				if d_box < best_dist:
+					best_dist = d_box
+					best_node = b
+
+	for t in get_tree().get_nodes_in_group("terminal"):
+		if t is Node2D and is_instance_valid(t):
+			var d_term: float = (t as Node2D).global_position.distance_to(foot_pos)
+			if d_term < best_dist:
+				best_dist = d_term
+				best_node = t
+
+	return best_node
 
 func try_interact() -> void:
-	if interactable_target != null and is_instance_valid(interactable_target):
-		if interactable_target.has_method("interact"):
-			interactable_target.interact()
+	var target: Node = _find_nearest_interactable()
+	if target == null and interactable_target != null and is_instance_valid(interactable_target):
+		if interactable_target is Node2D and (interactable_target as Node2D).global_position.distance_to(global_position) <= 48.0:
+			target = interactable_target
+
+	if target != null and is_instance_valid(target):
+		interactable_target = target
+		if target.has_method("interact"):
+			target.interact()
 			return
 	if carried_box != null and is_instance_valid(carried_box):
 		drop_carried_box()

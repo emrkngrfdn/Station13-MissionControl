@@ -52,18 +52,20 @@ func _process(_delta: float) -> void:
 	timer_label.text = "T-PLUS %02d:%02d" % [mins, secs]
 
 func _update_hud() -> void:
-	var rocket_cap: float = float(GameState.selected_rocket.get("max_mass_kg", 0.0))
-	var mass_ok: bool = GameState.total_mass_kg <= rocket_cap
+	var eff_mass: float = GameState.get_effective_mass_kg()
+	var eff_limit: float = GameState.get_effective_mass_limit_kg()
+	var mass_ok: bool = eff_mass <= eff_limit
 	var power_ok: bool = GameState.net_power_w >= 0.0
+	var target_gb: float = GameState.get_target_download_gb()
 
 	budget_label.text = "BUDGET: $%.0fM" % GameState.budget_m
-	mass_label.text = "MASS: %.0f/%.0fkg" % [GameState.total_mass_kg, rocket_cap]
+	mass_label.text = "MASS: %.0f/%.0fkg%s" % [eff_mass, eff_limit, "" if mass_ok else " (AŞILDI!)"]
 	mass_label.modulate = Color(0.4, 0.95, 0.55) if mass_ok else Color(1.0, 0.35, 0.35)
 
 	power_label.text = "POWER: %+.0fW" % GameState.net_power_w
 	power_label.modulate = Color(0.4, 0.95, 0.55) if power_ok else Color(1.0, 0.35, 0.35)
 
-	data_label.text = "DATA: %.1fGB | İNİŞ: %%%d" % [GameState.downloaded_data_gb, GameState.landing_success_chance]
+	data_label.text = "DATA: %.1f/%.0fGB | İNİŞ: %%%d" % [GameState.downloaded_data_gb, target_gb, GameState.landing_success_chance]
 
 func _on_cargo_spawned(part_data: Dictionary) -> void:
 	var box: Node2D = CARGO_BOX_SCENE.instantiate()
@@ -81,11 +83,13 @@ func _on_status_message(msg: String, is_error: bool) -> void:
 
 func _on_terminal_opened(terminal_name: String) -> void:
 	if terminal_name == "LAUNCH":
-		var check: Dictionary = GameState.validate_launch()
-		if check["can_launch"]:
-			get_tree().change_scene_to_file("res://scenes/world/landing_sim.tscn")
-		else:
-			_show_status("FIRLATMA ENGELLENDİ: %s" % String(check["errors"][0]), true)
+		if not GameState.briefing_completed:
+			_show_status("FIRLATMA ENGELLENDİ: Önce Görev Brifingi (Briefing) terminalinden görev ve fırlatma kararını onayla!", true)
+			return
+		if not GameState.is_power_lab_decided():
+			_show_status("FIRLATMA ENGELLENDİ: Önce Güç Laboratuvarı'ndan güç kaynağı kararını belirle!", true)
+			return
+		get_tree().change_scene_to_file("res://scenes/world/landing_sim.tscn")
 
 func _on_interact_btn_pressed() -> void:
 	if player and player.has_method("try_interact"):

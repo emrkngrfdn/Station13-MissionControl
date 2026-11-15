@@ -1,9 +1,9 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene format=3 uid="uid://dq1sof5oaykkt"]
 
-[ext_resource type="Script" path="res://scripts/lobby.gd" id="1_lobby"]
-[ext_resource type="Theme" path="res://assets/pixel_ui_theme.tres" id="2_theme"]
+[ext_resource type="Script" uid="uid://dc0yc30ixtkhi" path="res://scripts/lobby.gd" id="1_lobby"]
+[ext_resource type="Theme" uid="uid://c3vtnm5v7ucrt" path="res://assets/pixel_ui_theme.tres" id="2_theme"]
 
-[node name="Lobby" type="Control"]
+[node name="Lobby" type="Control" unique_id=1716077029]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -13,7 +13,7 @@ grow_vertical = 2
 theme = ExtResource("2_theme")
 script = ExtResource("1_lobby")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="ColorRect" parent="." unique_id=1962795545]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -22,7 +22,7 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.05, 0.07, 0.11, 1)
 
-[node name="MarginContainer" type="MarginContainer" parent="."]
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=2021104997]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -34,101 +34,101 @@ theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 6
 
-[node name="MainVBox" type="VBoxContainer" parent="MarginContainer"]
+[node name="MainVBox" type="VBoxContainer" parent="MarginContainer" unique_id=654114672]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="TitleLabel" type="Label" parent="MarginContainer/MainVBox"]
+[node name="TitleLabel" type="Label" parent="MarginContainer/MainVBox" unique_id=228106281]
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 text = "STATION 13: MISSION CONTROL — KOMUTA LOBİSİ"
 horizontal_alignment = 1
 
-[node name="Columns" type="HBoxContainer" parent="MarginContainer/MainVBox"]
+[node name="Columns" type="HBoxContainer" parent="MarginContainer/MainVBox" unique_id=1007588067]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 6
 
-[node name="CrewPanel" type="PanelContainer" parent="MarginContainer/MainVBox/Columns"]
+[node name="CrewPanel" type="PanelContainer" parent="MarginContainer/MainVBox/Columns" unique_id=1752210612]
 clip_contents = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="CrewVBox" type="VBoxContainer" parent="MarginContainer/MainVBox/Columns/CrewPanel"]
+[node name="CrewVBox" type="VBoxContainer" parent="MarginContainer/MainVBox/Columns/CrewPanel" unique_id=1586869306]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="CrewHeader" type="Label" parent="MarginContainer/MainVBox/Columns/CrewPanel/CrewVBox"]
+[node name="CrewHeader" type="Label" parent="MarginContainer/MainVBox/Columns/CrewPanel/CrewVBox" unique_id=1168164300]
 layout_mode = 2
 text = "1. MÜRETTEBAT (1-4)"
 
-[node name="NicknameInput" type="LineEdit" parent="MarginContainer/MainVBox/Columns/CrewPanel/CrewVBox"]
+[node name="NicknameInput" type="LineEdit" parent="MarginContainer/MainVBox/Columns/CrewPanel/CrewVBox" unique_id=2072058162]
 unique_name_in_owner = true
 layout_mode = 2
 placeholder_text = "Komutan Adı"
 
-[node name="AddBox" type="HBoxContainer" parent="MarginContainer/MainVBox/Columns/CrewPanel/CrewVBox"]
+[node name="AddBox" type="HBoxContainer" parent="MarginContainer/MainVBox/Columns/CrewPanel/CrewVBox" unique_id=579232788]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="AddPlayerInput" type="LineEdit" parent="MarginContainer/MainVBox/Columns/CrewPanel/CrewVBox/AddBox"]
+[node name="AddPlayerInput" type="LineEdit" parent="MarginContainer/MainVBox/Columns/CrewPanel/CrewVBox/AddBox" unique_id=288327938]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 placeholder_text = "ID (Ali#4210)"
 
-[node name="AddPlayerBtn" type="Button" parent="MarginContainer/MainVBox/Columns/CrewPanel/CrewVBox/AddBox"]
+[node name="AddPlayerBtn" type="Button" parent="MarginContainer/MainVBox/Columns/CrewPanel/CrewVBox/AddBox" unique_id=1701035305]
 layout_mode = 2
 text = "+ Ekle"
 
-[node name="CrewList" type="VBoxContainer" parent="MarginContainer/MainVBox/Columns/CrewPanel/CrewVBox"]
+[node name="CrewList" type="VBoxContainer" parent="MarginContainer/MainVBox/Columns/CrewPanel/CrewVBox" unique_id=1141920554]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 3
 
-[node name="MissionPanel" type="PanelContainer" parent="MarginContainer/MainVBox/Columns"]
+[node name="MissionPanel" type="PanelContainer" parent="MarginContainer/MainVBox/Columns" unique_id=1175056193]
 clip_contents = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 1.45
 
-[node name="MissionVBox" type="VBoxContainer" parent="MarginContainer/MainVBox/Columns/MissionPanel"]
+[node name="MissionVBox" type="VBoxContainer" parent="MarginContainer/MainVBox/Columns/MissionPanel" unique_id=1683274547]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="MissionHeader" type="Label" parent="MarginContainer/MainVBox/Columns/MissionPanel/MissionVBox"]
+[node name="MissionHeader" type="Label" parent="MarginContainer/MainVBox/Columns/MissionPanel/MissionVBox" unique_id=1792034226]
 layout_mode = 2
 text = "2. NASA GÖREV & BÜTÇE"
 
-[node name="MissionOption" type="OptionButton" parent="MarginContainer/MainVBox/Columns/MissionPanel/MissionVBox"]
+[node name="MissionOption" type="OptionButton" parent="MarginContainer/MainVBox/Columns/MissionPanel/MissionVBox" unique_id=2095029140]
 unique_name_in_owner = true
 layout_mode = 2
 clip_text = true
 
-[node name="ModifierOption" type="OptionButton" parent="MarginContainer/MainVBox/Columns/MissionPanel/MissionVBox"]
+[node name="ModifierOption" type="OptionButton" parent="MarginContainer/MainVBox/Columns/MissionPanel/MissionVBox" unique_id=84372927]
 unique_name_in_owner = true
 layout_mode = 2
 clip_text = true
 
-[node name="LaunchSiteOption" type="OptionButton" parent="MarginContainer/MainVBox/Columns/MissionPanel/MissionVBox"]
+[node name="LaunchSiteOption" type="OptionButton" parent="MarginContainer/MainVBox/Columns/MissionPanel/MissionVBox" unique_id=490304887]
 unique_name_in_owner = true
 layout_mode = 2
 clip_text = true
 
-[node name="BudgetLabel" type="Label" parent="MarginContainer/MainVBox/Columns/MissionPanel/MissionVBox"]
+[node name="BudgetLabel" type="Label" parent="MarginContainer/MainVBox/Columns/MissionPanel/MissionVBox" unique_id=161167534]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.45, 0.95, 0.6, 1)
 text = "DİNAMİK BÜTÇE: $180M"
 clip_text = true
 
-[node name="DescScroll" type="ScrollContainer" parent="MarginContainer/MainVBox/Columns/MissionPanel/MissionVBox"]
+[node name="DescScroll" type="ScrollContainer" parent="MarginContainer/MainVBox/Columns/MissionPanel/MissionVBox" unique_id=1902385172]
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="MissionDesc" type="Label" parent="MarginContainer/MainVBox/Columns/MissionPanel/MissionVBox/DescScroll"]
+[node name="MissionDesc" type="Label" parent="MarginContainer/MainVBox/Columns/MissionPanel/MissionVBox/DescScroll" unique_id=580989929]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(180, 0)
 layout_mode = 2
@@ -137,24 +137,24 @@ size_flags_vertical = 3
 theme_override_font_sizes/font_size = 9
 autowrap_mode = 3
 
-[node name="StartBtn" type="Button" parent="MarginContainer/MainVBox/Columns/MissionPanel/MissionVBox"]
+[node name="StartBtn" type="Button" parent="MarginContainer/MainVBox/Columns/MissionPanel/MissionVBox" unique_id=1377934354]
 layout_mode = 2
 text = "GÖREVİ BAŞLAT (SOLO / CO-OP)"
 
-[node name="LeaderboardPanel" type="PanelContainer" parent="MarginContainer/MainVBox/Columns"]
+[node name="LeaderboardPanel" type="PanelContainer" parent="MarginContainer/MainVBox/Columns" unique_id=1068270291]
 clip_contents = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="LeaderVBox" type="VBoxContainer" parent="MarginContainer/MainVBox/Columns/LeaderboardPanel"]
+[node name="LeaderVBox" type="VBoxContainer" parent="MarginContainer/MainVBox/Columns/LeaderboardPanel" unique_id=300366304]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="LeaderHeader" type="Label" parent="MarginContainer/MainVBox/Columns/LeaderboardPanel/LeaderVBox"]
+[node name="LeaderHeader" type="Label" parent="MarginContainer/MainVBox/Columns/LeaderboardPanel/LeaderVBox" unique_id=1712306801]
 layout_mode = 2
 text = "3. LİDERLİK TABLOSU"
 
-[node name="LeaderboardList" type="VBoxContainer" parent="MarginContainer/MainVBox/Columns/LeaderboardPanel/LeaderVBox"]
+[node name="LeaderboardList" type="VBoxContainer" parent="MarginContainer/MainVBox/Columns/LeaderboardPanel/LeaderVBox" unique_id=332312514]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3

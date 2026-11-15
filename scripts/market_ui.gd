@@ -5,14 +5,49 @@ extends PanelContainer
 @onready var parts_grid: GridContainer = %PartsGrid
 @onready var status_label: Label = %MarketStatusLabel
 
+const CATEGORIES: Array[Dictionary] = [
+	{ "id": "payload", "label": "BİLİM CİHAZLARI" },
+	{ "id": "power", "label": "GÜÇ" },
+	{ "id": "comms", "label": "İLETİŞİM" },
+	{ "id": "avionics", "label": "AVİYONİK" },
+	{ "id": "survival", "label": "KORUMA" }
+]
+
+var _selected_category: String = "payload"
+var _category_bar: HBoxContainer = null
+var _category_buttons: Dictionary = {}
 var _purchased_panel: PanelContainer = null
 var _purchased_list_label: Label = null
 
 func _ready() -> void:
 	visible = false
+	_ensure_category_bar_ui()
 	_ensure_purchased_list_ui()
 	EventBus.terminal_opened.connect(_on_terminal_opened)
 	EventBus.telemetry_changed.connect(_refresh_all)
+
+func _ensure_category_bar_ui() -> void:
+	var vbox: Node = get_node_or_null("VBox")
+	if vbox == null or _category_bar != null:
+		return
+
+	_category_bar = HBoxContainer.new()
+	_category_bar.add_theme_constant_override("separation", 4)
+
+	for cat in CATEGORIES:
+		var cid: String = String(cat["id"])
+		var btn: Button = Button.new()
+		btn.text = String(cat["label"])
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.add_theme_font_size_override("font_size", 9)
+		btn.pressed.connect(_on_category_selected.bind(cid))
+		_category_bar.add_child(btn)
+		_category_buttons[cid] = btn
+
+	var scroll_node: Node = get_node_or_null("VBox/Scroll")
+	var insert_idx: int = scroll_node.get_index() if scroll_node != null else 2
+	vbox.add_child(_category_bar)
+	vbox.move_child(_category_bar, insert_idx)
 
 func _ensure_purchased_list_ui() -> void:
 	var vbox: Node = get_node_or_null("VBox")
@@ -51,27 +86,57 @@ func _on_terminal_opened(terminal_name: String) -> void:
 func open_market() -> void:
 	visible = true
 	_populate_rockets()
+	_refresh_category_buttons()
 	_populate_parts()
 	_refresh_header()
 	_refresh_purchased_list()
 	status_label.add_theme_color_override("font_color", Color(0.85, 0.9, 0.95))
-	status_label.text = "Parça seçin; satın alınanlar kargo bandına düşer."
+	status_label.text = "Kategori seçip parça alın; satın alınanlar kargo bandına düşer."
+
+func _on_category_selected(cat_id: String) -> void:
+	_selected_category = cat_id
+	_refresh_category_buttons()
+	_populate_parts()
+
+func _refresh_category_buttons() -> void:
+	var all_parts: Array = GameState.get_available_parts_for_mission()
+	var counts: Dictionary = {}
+	for p in all_parts:
+		var t: String = String(p.get("type", "payload"))
+		counts[t] = int(counts.get(t, 0)) + 1
+
+	for cat in CATEGORIES:
+		var cid: String = String(cat["id"])
+		var btn: Button = _category_buttons.get(cid, null)
+		if btn == null:
+			continue
+		var c: int = int(counts.get(cid, 0))
+		btn.text = "%s (%d)" % [String(cat["label"]), c]
+		var is_active: bool = (cid == _selected_category)
+		btn.add_theme_color_override(
+			"font_color",
+			Color(1.0, 0.85, 0.35) if is_active else Color(0.8, 0.88, 0.95)
+		)
 
 func _refresh_all() -> void:
 	if not visible:
 		return
 	_refresh_header()
 	_refresh_purchased_list()
+	_refresh_category_buttons()
 	_populate_parts()
 
 func _refresh_header() -> void:
 	if not visible:
 		return
-	budget_label.text = "BÜTÇE: $%.0fM | ROKET LİMİTİ: %.0f kg" % [
+	var eff_mass: float = GameState.get_effective_mass_kg()
+	var eff_limit: float = GameState.get_effective_mass_limit_kg()
+	budget_label.text = "BÜTÇE: $%.0fM | KÜTLE: %.0f/%.0f kg" % [
 		GameState.budget_m,
-		float(GameState.selected_rocket.get("max_mass_kg", 0.0))
+		eff_mass,
+		eff_limit
 	]
-	if GameState.budget_m <= 0.0:
+	if GameState.budget_m <= 0.0 or eff_mass > eff_limit:
 		budget_label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
 	else:
 		budget_label.add_theme_color_override("font_color", Color(0.4, 0.95, 0.55))
@@ -99,13 +164,49 @@ func _populate_rockets() -> void:
 	rocket_option.clear()
 	var rockets: Array = GameState.parts_data.get("rockets", [])
 	var selected_id: String = String(GameState.selected_rocket.get("id", ""))
-	var selected_idx: int = 0
-	for i in range(rockets.size()):
-		var r: Dictionary = rockets[i]
-		rocket_option.add_item("%s (%.0f kg)" % [String(r.get("name", "")), float(r.get("max_mass_kg", 0))])
-		if String(r.get("id", "")) == selected_id:
-			selected_idx = i
-	rocket_option.selected = selected_idx
+	var bus_mass: float = float(GameState.current_mission.get("bus_dry_mass_kg", 0.0))
+	var distance_au: float = float(GameState.current_mission.get("distance_au", 1.0))
+	var needs_deep_space: bool = distance_au > 1.2
+
+	var compatible: Array = []
+	for r in rockets:
+		var r_dict: Dictionary = r
+		var r_id: String = String(r_dict.get("id", ""))
+		var r_cap: float = float(r_dict.get("max_mass_kg", 0.0))
+		var r_deep: bool = bool(r_dict.get("deep_space", false))
+		if r_id != selected_id:
+			if r_cap < bus_mass:
+				continue
+			if needs_deep_space and not r_deep:
+				continue
+		compatible.append(r_dict)
+
+	compatible.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a.get("max_mass_kg", 0.0)) < float(b.get("max_mass_kg", 0.0))
+	)
+
+	var current_tier_idx: int = 0
+	for i in range(compatible.size()):
+		if String(compatible[i].get("id", "")) == selected_id:
+			current_tier_idx = i
+			break
+
+	for i in range(compatible.size()):
+		var r_dict: Dictionary = compatible[i]
+		var r_cap: float = float(r_dict.get("max_mass_kg", 0.0))
+		var upgrade_cost: float = GameState.get_rocket_upgrade_cost(r_dict)
+		var label: String = "%s (%.0f kg)" % [String(r_dict.get("name", "")), r_cap]
+		var is_locked: bool = i > current_tier_idx + 1
+		if is_locked:
+			label += " [KİLİTLİ - Önce 1 alt kademe]"
+		elif upgrade_cost > 0.0:
+			label += " [+$%.0fM]" % upgrade_cost
+		rocket_option.add_item(label)
+		rocket_option.set_item_metadata(i, r_dict)
+		if is_locked:
+			rocket_option.set_item_disabled(i, true)
+	if rocket_option.item_count > 0:
+		rocket_option.selected = current_tier_idx
 
 func _populate_parts() -> void:
 	for child in parts_grid.get_children():
@@ -117,15 +218,22 @@ func _populate_parts() -> void:
 
 	var parts: Array = GameState.get_available_parts_for_mission()
 	for p in parts:
+		var p_type: String = String(p.get("type", "payload"))
+		if _selected_category != "all" and p_type != _selected_category:
+			continue
+
 		var pid: String = String(p.get("id", ""))
 		var bought_count: int = int(counts_by_id.get(pid, 0))
 		var installed: bool = GameState.is_part_installed(pid)
 
 		var card: PanelContainer = PanelContainer.new()
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
 		var vbox: VBoxContainer = VBoxContainer.new()
-		vbox.add_theme_constant_override("separation", 2)
+		vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		vbox.add_theme_constant_override("separation", 3)
 
 		var title: Label = Label.new()
 		var badge_txt: String = ""
@@ -149,18 +257,22 @@ func _populate_parts() -> void:
 			pwr_str,
 			int(p.get("science", 0))
 		]
+		stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		stats.add_theme_font_size_override("font_size", 9)
 		vbox.add_child(stats)
 
 		var note: Label = Label.new()
 		note.text = String(p.get("notes", ""))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		note.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		note.add_theme_font_size_override("font_size", 8)
 		note.add_theme_color_override("font_color", Color(0.75, 0.8, 0.88))
 		vbox.add_child(note)
 
 		var btn: Button = Button.new()
 		btn.text = "SATIN AL ($%dM)" % int(p.get("cost_m", 0))
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.custom_minimum_size = Vector2(0, 24)
 		btn.pressed.connect(_on_buy_part_pressed.bind(p))
 		vbox.add_child(btn)
 
@@ -184,11 +296,23 @@ func _on_buy_part_pressed(part: Dictionary) -> void:
 		EventBus.status_message.emit(err_msg, true)
 
 func _on_rocket_selected(idx: int) -> void:
-	var rockets: Array = GameState.parts_data.get("rockets", [])
-	if idx >= 0 and idx < rockets.size():
-		GameState.select_rocket(String(rockets[idx].get("id", "")))
+	if idx >= 0 and idx < rocket_option.item_count:
+		var r: Dictionary = rocket_option.get_item_metadata(idx)
+		var upgrade_cost: float = GameState.get_rocket_upgrade_cost(r)
+		var ok: bool = GameState.select_rocket(String(r.get("id", "")))
+		_populate_rockets()
 		_refresh_header()
-		status_label.text = "Roket güncellendi: %s" % String(rockets[idx].get("name", ""))
+		if ok:
+			status_label.add_theme_color_override("font_color", Color(0.45, 0.95, 0.65))
+			if upgrade_cost > 0.0:
+				status_label.text = "Roket yükseltildi: %s (-$%.0fM)" % [String(r.get("name", "")), upgrade_cost]
+			else:
+				status_label.text = "Roket güncellendi: %s" % String(r.get("name", ""))
+		else:
+			status_label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
+			status_label.text = "BÜTÇE YETERSİZ! %s için +$%.0fM gerekiyor (Mevcut: $%.0fM)." % [
+				String(r.get("name", "")), upgrade_cost, GameState.budget_m
+			]
 
 func _on_close_pressed() -> void:
 	visible = false

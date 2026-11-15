@@ -5,7 +5,7 @@
     { "id": "atlas_v_401", "name": "Atlas V 401 (Ay / LRO)", "max_mass_kg": 2200.0, "deep_space": true, "cost_m": 65 },
     { "id": "atlas_v_541", "name": "Atlas V 541 (Mars 2020)", "max_mass_kg": 4150.0, "deep_space": true, "cost_m": 85 },
     { "id": "atlas_v_551", "name": "Atlas V 551 (Jüpiter / Juno)", "max_mass_kg": 3625.0, "deep_space": true, "cost_m": 95 },
-    { "id": "falcon9", "name": "SpaceX Falcon 9 (Orta-Ağır)", "max_mass_kg": 15000.0, "deep_space": true, "cost_m": 67 },
+    { "id": "falcon9", "name": "SpaceX Falcon 9 (Orta-Ağır)", "max_mass_kg": 15000.0, "deep_space": true, "cost_m": 120 },
     { "id": "sls", "name": "NASA SLS Block 1 (Süper Ağır)", "max_mass_kg": 27000.0, "deep_space": true, "cost_m": 220 }
   ],
   "parts": [
@@ -319,10 +319,24 @@
       "notes": "LEO ve Ay'da yüksek güç sağlar; 5.2 AU Europa'da ters kare yasasıyla verimi %3.7'ye düşer."
     },
     {
+      "id": "solar_high_eff",
+      "name": "Üç Eklemli (GaAs) Güneş Paneli",
+      "type": "power",
+      "mission_ids": ["leo_climate_aqua", "lunar_pole_lro", "europa_juno"],
+      "cost_m": 28,
+      "mass_kg": 18.0,
+      "power_w": 520.0,
+      "data_mbps": 0.0,
+      "science": 20,
+      "landing_bonus": 5,
+      "tags": ["solar_panel"],
+      "notes": "Daha hafif (18 kg) ve yüksek verimli (520 W) uzay sınıfı güneş paneli."
+    },
+    {
       "id": "mmrtg",
       "name": "MMRTG Nükleer Güç Kaynağı",
       "type": "power",
-      "mission_ids": ["europa_juno", "mars_perseverance"],
+      "mission_ids": ["europa_juno", "mars_perseverance", "lunar_pole_lro"],
       "cost_m": 75,
       "mass_kg": 45.0,
       "power_w": 110.0,
@@ -332,6 +346,21 @@
       "landing_bonus": 10,
       "tags": ["nuclear_power"],
       "notes": "Güneş ışığından ve toz fırtınalarından bağımsız 7/24 kesintisiz 110 W güç sağlar."
+    },
+    {
+      "id": "rhu_battery",
+      "name": "Kompakt Lityum-İyon & RHU Paketi",
+      "type": "power",
+      "mission_ids": ["all"],
+      "cost_m": 22,
+      "mass_kg": 14.0,
+      "power_w": 65.0,
+      "nuclear": true,
+      "data_mbps": 0.0,
+      "science": 0,
+      "landing_bonus": 5,
+      "tags": ["backup_power"],
+      "notes": "Hafif (14 kg) yedek enerji paketi; gölge geçişleri ve tepe yükler için 65 W sağlar."
     },
     {
       "id": "antenna_s",
@@ -348,6 +377,20 @@
       "notes": "Ucuz ve hafif anten (5 Mbps indirme); yüksek veri üreten kameralarda darboğaz yapabilir."
     },
     {
+      "id": "antenna_x",
+      "name": "X-Band Orta Menzil Anteni",
+      "type": "comms",
+      "mission_ids": ["all"],
+      "cost_m": 24,
+      "mass_kg": 18.0,
+      "power_w": -28.0,
+      "data_mbps": -45.0,
+      "science": 0,
+      "landing_bonus": 8,
+      "tags": ["comms_xband"],
+      "notes": "Dengeli fiyat/performans (45 Mbps indirme, 18 kg); orta menzil görevler için idealdir."
+    },
+    {
       "id": "antenna_ka",
       "name": "Ka-Band Derin Uzay Çanağı",
       "type": "comms",
@@ -360,6 +403,48 @@
       "landing_bonus": 15,
       "tags": ["comms_kaband"],
       "notes": "Yüksek bant genişliği (150 Mbps indirme); derin uzay ve ağır bilim verisi için idealdir."
+    },
+    {
+      "id": "star_tracker_cpu",
+      "name": "Yıldız İzleyici & Yedek Aviyonik",
+      "type": "avionics",
+      "mission_ids": ["all"],
+      "cost_m": 20,
+      "mass_kg": 6.0,
+      "power_w": -12.0,
+      "data_mbps": 0.0,
+      "science": 50,
+      "landing_bonus": 15,
+      "tags": ["backup_avionics"],
+      "notes": "1202 Alarmı ve yönelim kayıplarında Cold-Backup yedek bilgisayar görevi görür."
+    },
+    {
+      "id": "rad750_cpu",
+      "name": "RAD750 Radyasyon Korumalı Bilgisayar",
+      "type": "avionics",
+      "mission_ids": ["all"],
+      "cost_m": 34,
+      "mass_kg": 9.0,
+      "power_w": -18.0,
+      "data_mbps": 0.0,
+      "science": 100,
+      "landing_bonus": 20,
+      "tags": ["backup_avionics"],
+      "notes": "Kozmik ışınlara dayanıklı yüksek hızlı uçuş bilgisayarı (+20% iniş, +100 Bilim)."
+    },
+    {
+      "id": "mli_thermal_shield",
+      "name": "Çok Katmanlı Termal Yalıtım (MLI)",
+      "type": "survival",
+      "mission_ids": ["all"],
+      "cost_m": 12,
+      "mass_kg": 8.0,
+      "power_w": 0.0,
+      "data_mbps": 0.0,
+      "science": 0,
+      "landing_bonus": 10,
+      "tags": ["thermal_mli"],
+      "notes": "Altın kaplama hafif yalıtım battaniyesi; güç tüketmeden aşırı sıcaklık farklarından korur."
     }
   ]
 }

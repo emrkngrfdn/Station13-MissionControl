@@ -51,6 +51,7 @@ const SUIT_COLORS: Array[Color] = [
 @onready var leaderboard_list: VBoxContainer = %LeaderboardList
 @onready var crew_dummies: Node2D = $CrewDummies
 @onready var player: CharacterBody2D = $Player
+<<<<<<< HEAD
 @onready var back_btn: TextureButton = $HUD/BottomBar/BackBtn
 @onready var start_btn: TextureButton = $HUD/BottomBar/StartBtn
 @onready var close_btn: TextureButton = $HUD/HostSettingsPanel/CloseBtn
@@ -69,6 +70,14 @@ func _ready() -> void:
 	var empty_tex := ImageTexture.create_from_image(empty_img)
 	for opt in [mission_option, modifier_option, launch_site_option]:
 		opt.add_theme_icon_override("arrow", empty_tex)
+=======
+
+var _visibility_toggle_btn: Button = null
+
+func _ready() -> void:
+	settings_panel.visible = false
+	_ensure_visibility_setting_ui()
+>>>>>>> origin/zuley
 	_populate_selectors()
 	EventBus.lobby_updated.connect(_on_lobby_updated)
 	EventBus.telemetry_changed.connect(_refresh_top_bar)
@@ -78,6 +87,50 @@ func _ready() -> void:
 	_refresh_host_permissions()
 	_refresh_top_bar()
 	_refresh_leaderboard()
+	_apply_host_permissions()
+
+func _ensure_visibility_setting_ui() -> void:
+	var vbox: Node = settings_panel.get_node_or_null("VBox")
+	if vbox == null or _visibility_toggle_btn != null:
+		return
+	var row: HBoxContainer = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+
+	var lbl: Label = Label.new()
+	lbl.text = "Oda Görünürlüğü:"
+	lbl.add_theme_font_size_override("font_size", 10)
+	row.add_child(lbl)
+
+	_visibility_toggle_btn = Button.new()
+	_visibility_toggle_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_visibility_toggle_btn.add_theme_font_size_override("font_size", 10)
+	_visibility_toggle_btn.pressed.connect(_on_toggle_room_visibility_pressed)
+	row.add_child(_visibility_toggle_btn)
+
+	vbox.add_child(row)
+	vbox.move_child(row, 1)
+
+func _on_toggle_room_visibility_pressed() -> void:
+	if GameState.is_room_open and not GameState.is_room_host:
+		return
+	GameState.set_room_public(not GameState.is_room_public)
+
+func _apply_host_permissions() -> void:
+	var is_host: bool = GameState.is_room_host or not GameState.is_room_open
+	mission_option.disabled = not is_host
+	modifier_option.disabled = not is_host
+	launch_site_option.disabled = not is_host
+	if _visibility_toggle_btn != null:
+		_visibility_toggle_btn.disabled = not is_host
+	if add_player_input != null:
+		add_player_input.editable = is_host
+	var start_btn: BaseButton = get_node_or_null("HUD/TopBar/StartBtn") as BaseButton
+	if start_btn == null:
+		start_btn = find_child("StartBtn", true, false) as BaseButton
+	if start_btn != null:
+		start_btn.disabled = not is_host
+		if not is_host and start_btn is Button:
+			(start_btn as Button).text = "KURUCU BEKLENİYOR"
 
 func _setup_texture_button(btn: TextureButton) -> void:
 	btn.pivot_offset = btn.size * 0.5
@@ -123,25 +176,39 @@ func _set_settings_open(is_open: bool) -> void:
 	settings_panel.visible = is_open
 	settings_backdrop.visible = is_open
 
+func _color_to_row(c: Color) -> int:
+	if c.b > 0.7 and c.r < 0.5:
+		return 1 # Mavi
+	if c.r > 0.8 and c.g > 0.7:
+		return 2 # Sarı
+	if c.g > 0.7 and c.r < 0.5:
+		return 3 # Yeşil
+	return 0 # Kırmızı
+
 func _on_lobby_updated(players: Array) -> void:
 	for child in crew_dummies.get_children():
 		child.queue_free()
 
-	for i in range(1, players.size()):
+	var slot_idx: int = 0
+	for i in range(players.size()):
 		var p: Dictionary = players[i]
-		var dummy := Node2D.new()
-		dummy.position = CREW_POSITIONS[(i - 1) % CREW_POSITIONS.size()]
+		if String(p.get("tag", "")) == PlayerProfile.full_tag:
+			continue
+		var dummy: Node2D = Node2D.new()
+		dummy.position = CREW_POSITIONS[slot_idx % CREW_POSITIONS.size()]
+		slot_idx += 1
 
-		var spr := Sprite2D.new()
+		var spr: Sprite2D = Sprite2D.new()
 		spr.texture = ASTRONAUT_SHEET
 		spr.scale = Vector2(0.85, 0.85)
 		spr.offset.x = -7.0
 		spr.region_enabled = true
-		var row: int = i % 4
+		var p_color: Color = p.get("color", SUIT_COLORS[i % SUIT_COLORS.size()])
+		var row: int = _color_to_row(p_color)
 		spr.region_rect = Rect2(0, floor(row * 46.75), 50, 46)
 		dummy.add_child(spr)
 
-		var tag := Label.new()
+		var tag: Label = Label.new()
 		tag.text = p.get("tag", "Crew")
 		tag.z_index = 20
 		tag.z_as_relative = false
@@ -235,6 +302,7 @@ func _refresh_host_permissions() -> void:
 	start_btn.modulate = dim if can_edit else Color(0.5, 0.52, 0.58, 0.7)
 
 func _refresh_helmet_slots(players: Array) -> void:
+<<<<<<< HEAD
 	var count_idx: int = clampi(players.size(), 1, 4) - 1
 	var digit_atlas := AtlasTexture.new()
 	digit_atlas.atlas = HUD_PLAYERS_SHEET
@@ -242,14 +310,18 @@ func _refresh_helmet_slots(players: Array) -> void:
 	player_count_icon.texture = digit_atlas
 
 	var slots := helmet_slots.get_children()
+=======
+	player_count_label.text = str(players.size())
+	var slots: Array[Node] = helmet_slots.get_children()
+>>>>>>> origin/zuley
 	for i in range(slots.size()):
-		var slot := slots[i] as TextureRect
+		var slot: TextureRect = slots[i] as TextureRect
 		if slot == null:
 			continue
 		if i < players.size():
 			var c: Color = players[i].get("color", SUIT_COLORS[i % SUIT_COLORS.size()])
 			var idx: int = _color_to_helmet_idx(c)
-			var atlas := AtlasTexture.new()
+			var atlas: AtlasTexture = AtlasTexture.new()
 			atlas.atlas = HUD_PLAYERS_SHEET
 			atlas.region = HELMET_REGIONS[idx]
 			slot.texture = atlas
@@ -268,24 +340,42 @@ func _color_to_helmet_idx(c: Color) -> int:
 
 func _refresh_top_bar() -> void:
 	var m: Dictionary = GameState.current_mission
-	var code_txt: String = GameState.room_code if GameState.room_code != "" else "LOKAL"
-	room_info_label.text = "ODA: %s" % code_txt
-	mission_summary_label.text = "GÖREV:\n%s" % m.get("name", "-")
+	var vis_tag: String = "PUBLIC" if GameState.is_room_public else "PRIVATE"
+	room_info_label.text = "ODA: %s (%s) | OYUNCU: %d/4" % [GameState.room_code, vis_tag, GameState.lobby_players.size()]
+	mission_summary_label.text = "GÖREV: %s | BÜTÇE: $%.0fM | ROKET: %s" % [
+		m.get("name", "-"),
+		GameState.budget_m,
+		GameState.selected_rocket.get("name", "-")
+	]
 	mission_desc.text = "%s\nYörünge: %s | Güç: %.0fW | Kütle Limiti: %.0fkg" % [
 		m.get("description", ""),
 		m.get("orbit_label", ""),
 		float(m.get("nominal_power_w", 0.0)),
 		float(m.get("max_mass_kg", 0.0))
 	]
+	if mission_option.selected != GameState.current_mission_idx and GameState.current_mission_idx < mission_option.item_count:
+		mission_option.selected = GameState.current_mission_idx
+	if modifier_option.selected != GameState.current_modifier_idx and GameState.current_modifier_idx < modifier_option.item_count:
+		modifier_option.selected = GameState.current_modifier_idx
+	if _visibility_toggle_btn != null:
+		if GameState.is_room_public:
+			_visibility_toggle_btn.text = "PUBLIC (Açık Odalarda Görünür)"
+			_visibility_toggle_btn.add_theme_color_override("font_color", Color(0.45, 0.95, 0.6))
+		else:
+			_visibility_toggle_btn.text = "PRIVATE (Sadece Oda Koduyla Giriş)"
+			_visibility_toggle_btn.add_theme_color_override("font_color", Color(1.0, 0.82, 0.35))
+	_sync_launch_site_dropdown()
+	_apply_host_permissions()
 
 func _refresh_leaderboard() -> void:
 	for child in leaderboard_list.get_children():
 		child.queue_free()
 
 	var current_id: String = GameState.current_mission.get("id", "")
-	var count := 0
+	var count: int = 0
 	for rec in LeaderboardManager.records:
 		if rec.get("mission_id", "") == current_id:
+<<<<<<< HEAD
 			var bar := TextureRect.new()
 			bar.custom_minimum_size = Vector2(236, 24)
 			var bar_atlas := AtlasTexture.new()
@@ -301,6 +391,9 @@ func _refresh_leaderboard() -> void:
 			lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			lbl.add_theme_font_size_override("font_size", 8)
 			lbl.add_theme_color_override("font_color", Color(0.88, 0.96, 1.0, 1.0))
+=======
+			var lbl: Label = Label.new()
+>>>>>>> origin/zuley
 			lbl.text = "%s — %.1fs | Skor: %d" % [
 				rec.get("team", ""),
 				float(rec.get("time_sec", 0.0)),
@@ -313,7 +406,7 @@ func _refresh_leaderboard() -> void:
 			if count >= 2:
 				break
 	if count == 0:
-		var empty_lbl := Label.new()
+		var empty_lbl: Label = Label.new()
 		empty_lbl.text = "Bu görevde henüz rekor yok."
 		empty_lbl.add_theme_font_size_override("font_size", 8)
 		empty_lbl.modulate = Color(0.6, 0.65, 0.72)
@@ -321,6 +414,10 @@ func _refresh_leaderboard() -> void:
 
 func _on_mission_selected(_idx: int) -> void:
 	if GameState.is_room_open and not GameState.is_room_host:
+<<<<<<< HEAD
+=======
+		_refresh_top_bar()
+>>>>>>> origin/zuley
 		return
 	GameState.setup_mission(mission_option.selected, modifier_option.selected)
 	_sync_launch_site_dropdown()
@@ -328,11 +425,19 @@ func _on_mission_selected(_idx: int) -> void:
 
 func _on_modifier_selected(_idx: int) -> void:
 	if GameState.is_room_open and not GameState.is_room_host:
+<<<<<<< HEAD
+=======
+		_refresh_top_bar()
+>>>>>>> origin/zuley
 		return
 	GameState.setup_mission(mission_option.selected, modifier_option.selected)
 
 func _on_launch_site_selected(idx: int) -> void:
 	if GameState.is_room_open and not GameState.is_room_host:
+<<<<<<< HEAD
+=======
+		_refresh_top_bar()
+>>>>>>> origin/zuley
 		return
 	var sites: Array = GameState.missions_data.get("launch_sites", [])
 	if idx >= 0 and idx < sites.size():
