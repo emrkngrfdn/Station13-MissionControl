@@ -1,5 +1,7 @@
 extends PanelContainer
 
+const StationFrameDrawer = preload("res://scripts/StationFrameDrawer.gd")
+
 const STATIONS: Array[String] = ["GOLDSTONE (ABD)", "MADRID (İSPANYA)", "CANBERRA (AVUSTRALYA)"]
 const STATION_DEFAULT_CENTERS: Array[float] = [24.0, 52.0, 78.0]
 
@@ -16,14 +18,28 @@ var _target_half_width: float = 11.0
 var _tip_label: Label = null
 var _goal_label: Label = null
 var _goal_bar: ProgressBar = null
+var _bonus_label: Label = null
 var _band_bar: Control = null
 var _zone_rect: ColorRect = null
 var _needle_rect: ColorRect = null
 var _updating_slider_from_net: bool = false
 var _net_sync_timer: float = 0.0
+var _last_announced_tier: int = 0
 
 func _ready() -> void:
 	visible = false
+	StationFrameDrawer.apply_modal_style(self, "green")
+	StationFrameDrawer.style_close_button(get_node_or_null("VBox/Header/CloseBtn") as Button)
+	var title_lbl: Label = get_node_or_null("VBox/Header/Title") as Label
+	if title_lbl != null:
+		title_lbl.add_theme_font_size_override("font_size", 12)
+		title_lbl.add_theme_color_override("font_color", Color(0.55, 0.9, 1.0))
+	if station_label != null:
+		station_label.add_theme_font_size_override("font_size", 10)
+	if stats_label != null:
+		stats_label.add_theme_font_size_override("font_size", 10)
+	if lock_status_label != null:
+		lock_status_label.add_theme_font_size_override("font_size", 11)
 	_ensure_tip_ui()
 	EventBus.terminal_opened.connect(_on_terminal_opened)
 	EventBus.telemetry_changed.connect(_on_telemetry_synced)
@@ -35,20 +51,26 @@ func _ensure_tip_ui() -> void:
 	if vbox == null or _tip_label != null:
 		return
 	_goal_label = Label.new()
-	_goal_label.add_theme_font_size_override("font_size", 12)
+	_goal_label.add_theme_font_size_override("font_size", 11)
 	vbox.add_child(_goal_label)
 
 	_goal_bar = ProgressBar.new()
 	_goal_bar.min_value = 0.0
 	_goal_bar.max_value = 100.0
 	_goal_bar.value = 0.0
-	_goal_bar.custom_minimum_size = Vector2(0, 16)
+	_goal_bar.custom_minimum_size = Vector2(0, 15)
 	_goal_bar.show_percentage = true
 	vbox.add_child(_goal_bar)
+
+	_bonus_label = Label.new()
+	_bonus_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_bonus_label.add_theme_font_size_override("font_size", 10)
+	vbox.add_child(_bonus_label)
 
 	var stats_idx: int = stats_label.get_index() if stats_label != null else 0
 	vbox.move_child(_goal_label, stats_idx)
 	vbox.move_child(_goal_bar, stats_idx + 1)
+	vbox.move_child(_bonus_label, stats_idx + 2)
 
 	_band_bar = Control.new()
 	_band_bar.custom_minimum_size = Vector2(0, 14)
@@ -79,8 +101,8 @@ func _ensure_tip_ui() -> void:
 
 	_tip_label = Label.new()
 	_tip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_tip_label.add_theme_font_size_override("font_size", 8)
-	_tip_label.add_theme_color_override("font_color", Color(0.55, 0.88, 1.0))
+	_tip_label.add_theme_font_size_override("font_size", 9)
+	_tip_label.add_theme_color_override("font_color", Color(0.65, 0.88, 1.0))
 	vbox.add_child(_tip_label)
 
 func _pick_new_target_for_station() -> void:
@@ -110,6 +132,7 @@ func _on_telemetry_synced() -> void:
 func _on_terminal_opened(terminal_name: String) -> void:
 	if terminal_name == "DSN_COMMS":
 		visible = true
+		_last_announced_tier = GameState.get_dsn_bonus_tiers_completed()
 		if not GameState.is_network_active or GameState.is_room_host:
 			_station_timer = GameState.dsn_station_timer
 			_station_idx = GameState.dsn_station_idx % STATIONS.size()
@@ -134,6 +157,18 @@ func _process(delta: float) -> void:
 		return
 
 	var is_authority: bool = (not GameState.is_network_active) or GameState.is_room_host
+
+	var max_bonus_gb: float = GameState.get_dsn_max_bonus_gb()
+	var is_dsn_maxed: bool = GameState.downloaded_data_gb >= max_bonus_gb
+
+	if is_dsn_maxed:
+		if is_authority and GameState.dsn_locked:
+			GameState.dsn_locked = false
+			GameState.recalculate()
+			if GameState.is_network_active:
+				GameState.sync_dsn_state(_station_idx, _target_center, _station_timer, GameState.downloaded_data_gb, GameState.ssd_used_gb, false)
+		_refresh_labels(false, true, maxf(0.0, 6.0 - _station_timer))
+		return
 
 	if Input.is_action_pressed("ui_left"):
 		freq_slider.value = clamp(freq_slider.value - 55.0 * delta, 0.0, 100.0)
@@ -167,10 +202,24 @@ func _process(delta: float) -> void:
 		var prev_locked: bool = GameState.dsn_locked
 		GameState.dsn_locked = locked and window_open
 		if locked and window_open:
+			var prev_tier: int = GameState.get_dsn_bonus_tiers_completed()
 			var transferred_gb: float = _get_effective_gb_per_sec() * delta
-			GameState.downloaded_data_gb += transferred_gb
+			GameState.downloaded_data_gb = minf(max_bonus_gb, GameState.downloaded_data_gb + transferred_gb)
 			GameState.ssd_used_gb = max(0.0, GameState.ssd_used_gb - transferred_gb * 0.5)
 			GameState.recalculate()
+			var new_tier: int = GameState.get_dsn_bonus_tiers_completed()
+			if new_tier > prev_tier and new_tier > _last_announced_tier:
+				_last_announced_tier = new_tier
+				var bonus_sci: int = GameState.get_dsn_bonus_science()
+				EventBus.status_message.emit(
+					"DSN EK VERİ KADEME %d/%d TAMAMLANDI! +%d Bilim Puanı eklendi (Toplam DSN Bonusu: +%d Bilim)!" % [
+						new_tier,
+						GameState.DSN_MAX_EXTRA_STEPS,
+						GameState.DSN_EXTRA_SCIENCE_PER_STEP,
+						bonus_sci
+					],
+					false
+				)
 		elif prev_locked != GameState.dsn_locked:
 			GameState.recalculate()
 
@@ -189,22 +238,54 @@ func _refresh_labels(locked: bool, window_open: bool = true, window_remaining: f
 	var target_gb: float = GameState.get_target_download_gb()
 	var downloaded_gb: float = GameState.downloaded_data_gb
 	var goal_pct: float = clampf((downloaded_gb / max(1.0, target_gb)) * 100.0, 0.0, 100.0)
+	var extra_gb: float = GameState.get_dsn_extra_gb()
+	var bonus_tier: int = GameState.get_dsn_bonus_tiers_completed()
+	var max_tiers: int = GameState.DSN_MAX_EXTRA_STEPS
+	var step_gb: float = GameState.DSN_EXTRA_STEP_GB
+	var step_sci: int = GameState.DSN_EXTRA_SCIENCE_PER_STEP
+	var bonus_sci: int = GameState.get_dsn_bonus_science()
+	var max_extra_gb: float = step_gb * float(max_tiers)
+
 	if _goal_label != null:
 		if downloaded_gb >= target_gb:
-			_goal_label.text = "VERİ HEDEFİ TAMAMLANDI: %.1f / %.0f GB (%%%d) - Fırlatma için hazır!" % [downloaded_gb, target_gb, int(round(goal_pct))]
+			_goal_label.text = "VERİ HEDEFİ TAMAMLANDI: %.1f / %.0f GB (%%%d) — Ek Veri ile Bilim Puanı Kazanabilirsin!" % [downloaded_gb, target_gb, int(round(goal_pct))]
 			_goal_label.add_theme_color_override("font_color", Color(0.35, 0.95, 0.5))
 		else:
 			_goal_label.text = "GÖREV VERİ HEDEFİ: %.1f / %.0f GB (%%%d) | İndirilecek: %.1f GB" % [downloaded_gb, target_gb, int(round(goal_pct)), max(0.0, target_gb - downloaded_gb)]
 			_goal_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35))
 	if _goal_bar != null:
-		_goal_bar.value = goal_pct
-	stats_label.text = "İNDİRİLEN: %.1f/%.0f GB (%.1f GB/sn) | SSD: %%%d (%.1f/%.0f GB) | ANTEN: %.0f Mbps" % [
+		if downloaded_gb < target_gb:
+			_goal_bar.value = goal_pct
+		else:
+			var extra_pct: float = clampf((extra_gb / max(1.0, max_extra_gb)) * 100.0, 0.0, 100.0)
+			_goal_bar.value = extra_pct
+
+	if _bonus_label != null:
+		if downloaded_gb < target_gb:
+			_bonus_label.text = "EK BİLİM BONUSU (0/%d): Hedef (%.0f GB) dolduktan sonra her +%.0f GB ek veri +%d Bilim Puanı verir (Maks 4 kademe: +%d Bilim)." % [
+				max_tiers, target_gb, step_gb, step_sci, max_tiers * step_sci
+			]
+			_bonus_label.add_theme_color_override("font_color", Color(0.72, 0.86, 1.0))
+		elif bonus_tier < max_tiers:
+			var next_tier_gb: float = target_gb + float(bonus_tier + 1) * step_gb
+			var rem_gb: float = maxf(0.0, next_tier_gb - downloaded_gb)
+			_bonus_label.text = "EK BİLİM KADEME %d/%d AKTİF (+%d Bilim) | Sonraki +%d Bilim için: %.1f GB kaldı (Hedef: %.0f GB |Toplam Bilim: %d)" % [
+				bonus_tier, max_tiers, bonus_sci, step_sci, rem_gb, next_tier_gb, GameState.science_score
+			]
+			_bonus_label.add_theme_color_override("font_color", Color(0.45, 0.98, 0.75))
+		else:
+			_bonus_label.text = "MAKSİMUM EK VERİ BONUSU (%d/%d TAMAMLANDI): +%d Bilim Puanı kazanıldı! (Toplam Bilim: %d)" % [
+				max_tiers, max_tiers, bonus_sci, GameState.science_score
+			]
+			_bonus_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.35))
+
+	stats_label.text = "İNDİRİLEN: %.1f/%.0f GB (+%.1f GB Ek) | HIZ: %.1f GB/sn | BİLİM: %d (+%d DSN) | ANTEN: %.0f Mbps" % [
 		downloaded_gb,
 		target_gb,
+		extra_gb,
 		gb_per_sec,
-		ssd_pct,
-		GameState.ssd_used_gb,
-		GameState.ssd_capacity_gb,
+		GameState.science_score,
+		bonus_sci,
 		GameState.downlink_mbps
 	]
 	if _zone_rect != null:
@@ -217,7 +298,10 @@ func _refresh_labels(locked: bool, window_open: bool = true, window_remaining: f
 
 	var t_min: float = max(0.0, _target_center - _target_half_width)
 	var t_max: float = min(100.0, _target_center + _target_half_width)
-	if not window_open:
+	if downloaded_gb >= GameState.get_dsn_max_bonus_gb():
+		lock_status_label.text = "VERİ İLETİMİ TAMAMLANDI — MAKSİMUM EK BİLİM ALINDI!"
+		lock_status_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.35))
+	elif not window_open:
 		lock_status_label.text = "YER İSTASYONU UFUK DEĞİŞİMİ — YENİ İSTASYON GELİYOR..."
 		lock_status_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.35))
 	elif locked:

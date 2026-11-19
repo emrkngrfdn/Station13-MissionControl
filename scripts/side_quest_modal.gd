@@ -1,5 +1,7 @@
 extends PanelContainer
 
+const StationFrameDrawer = preload("res://scripts/StationFrameDrawer.gd")
+
 @onready var title_label: Label = %QuestTitle
 @onready var desc_label: Label = %QuestDesc
 @onready var options_box: VBoxContainer = %OptionsBox
@@ -48,12 +50,20 @@ func _ready() -> void:
 	visible = false
 	z_index = 60
 	feedback_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title_label.add_theme_font_size_override("font_size", 12)
+	desc_label.add_theme_font_size_override("font_size", 11)
+	feedback_label.add_theme_font_size_override("font_size", 10)
 	_close_btn = get_node_or_null("VBox/Header/CloseBtn") as Button
+	StationFrameDrawer.apply_modal_style(self, "blue")
+	StationFrameDrawer.style_close_button(_close_btn)
 	_ensure_extra_ui()
 	EventBus.terminal_opened.connect(_on_terminal_opened)
 	EventBus.side_quest_triggered.connect(_on_random_crisis_triggered)
 	EventBus.mission_started.connect(_reset_quests)
 	EventBus.telemetry_changed.connect(_on_vote_telemetry_updated)
+
+func _set_frame_accent(mode: String) -> void:
+	StationFrameDrawer.apply_modal_style(self, mode)
 
 func _ensure_extra_ui() -> void:
 	var vbox: Node = get_node_or_null("VBox")
@@ -67,7 +77,7 @@ func _ensure_extra_ui() -> void:
 
 		_timer_label = Label.new()
 		_timer_label.add_theme_font_size_override("font_size", 11)
-		_timer_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.35))
+		_timer_label.add_theme_color_override("font_color", Color(0.98, 0.82, 0.45))
 		_timer_label.text = "ACİL MÜDAHALE SÜRESİ: 20.0s"
 
 		_timer_bar = ProgressBar.new()
@@ -86,6 +96,7 @@ func _ensure_extra_ui() -> void:
 	if _ack_btn == null:
 		_ack_btn = Button.new()
 		_ack_btn.text = "OKUDUM / KAPAT"
+		_ack_btn.add_theme_font_size_override("font_size", 10)
 		_ack_btn.visible = false
 		_ack_btn.pressed.connect(_on_close_pressed)
 		vbox.add_child(_ack_btn)
@@ -93,8 +104,9 @@ func _ensure_extra_ui() -> void:
 	if _fail_mission_btn == null:
 		_fail_mission_btn = Button.new()
 		_fail_mission_btn.text = "BÜTÇE TÜKENDİ — GÖREVİ BAŞARISIZ SONLANDIR"
+		_fail_mission_btn.add_theme_font_size_override("font_size", 10)
 		_fail_mission_btn.visible = false
-		_fail_mission_btn.add_theme_color_override("font_color", Color(1.0, 0.4, 0.35))
+		_fail_mission_btn.add_theme_color_override("font_color", Color(0.95, 0.5, 0.48))
 		_fail_mission_btn.pressed.connect(_on_fail_mission_pressed)
 		vbox.add_child(_fail_mission_btn)
 
@@ -210,6 +222,7 @@ func _open_power_lab_summary() -> void:
 		_ack_btn.visible = true
 	title_label.text = "GÜÇ LABORATUVARI: SİSTEM AKTİF"
 	title_label.add_theme_color_override("font_color", Color(0.45, 0.95, 0.65))
+	_set_frame_accent("green")
 	desc_label.text = "Güç kaynağı kararı ve sigorta/bara kablo bağlantıları tamamlandı.\n• Net Güç Dengesi: %+.0f W\n• Batarya Durumu: %%%.0f" % [
 		GameState.net_power_w,
 		GameState.battery_charge_pct
@@ -245,7 +258,8 @@ func _open_briefing_summary() -> void:
 	var m: Dictionary = GameState.current_mission
 	var site_name: String = String(GameState.selected_launch_site.get("name", "-"))
 	title_label.text = "BRİFİNG RAPORU: %s" % String(m.get("name", "Görev"))
-	title_label.add_theme_color_override("font_color", Color(0.45, 0.95, 0.65))
+	title_label.add_theme_color_override("font_color", Color(0.55, 0.9, 1.0))
+	_set_frame_accent("blue")
 
 	var lines: Array[String] = []
 	lines.append("• Fırlatma Üssü: %s | Yörünge: %s" % [site_name, String(m.get("orbit_label", ""))])
@@ -297,10 +311,17 @@ func open_quest(quest_data: Dictionary) -> void:
 	if _fail_mission_btn != null:
 		_fail_mission_btn.visible = false
 
+	var room_type: String = String(quest_data.get("room", "BRIEFING"))
+	if is_crisis:
+		_set_frame_accent("red")
+	elif room_type == "POWER_LAB":
+		_set_frame_accent("green")
+	else:
+		_set_frame_accent("blue")
 	title_label.text = String(quest_data.get("title", "MÜHENDİSLİK KARARI"))
 	title_label.add_theme_color_override(
 		"font_color",
-		Color(1.0, 0.42, 0.35) if is_crisis else Color(0.95, 0.72, 0.25)
+		Color(0.98, 0.55, 0.52) if is_crisis else (Color(0.58, 0.94, 0.78) if room_type == "POWER_LAB" else Color(0.68, 0.88, 1.0))
 	)
 	desc_label.text = String(quest_data.get("description", ""))
 	feedback_label.text = ""
@@ -324,8 +345,18 @@ func open_quest(quest_data: Dictionary) -> void:
 		var btn: Button = Button.new()
 		btn.text = String(opt.get("label", "Seçenek")) + ("" if can_afford else " [YETERSİZ BÜTÇE]")
 		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		btn.custom_minimum_size = Vector2(0, 28)
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		btn.add_theme_font_size_override("font_size", 10)
+		var sb_norm: StyleBoxFlat = StationFrameDrawer.make_option_button_stylebox(true)
+		var sb_hov: StyleBoxFlat = StationFrameDrawer.make_option_button_stylebox(false)
+		btn.add_theme_stylebox_override("normal", sb_norm)
+		btn.add_theme_stylebox_override("hover", sb_hov)
+		btn.add_theme_stylebox_override("pressed", sb_hov)
+		btn.add_theme_stylebox_override("disabled", sb_norm)
 		if not can_afford:
-			btn.add_theme_color_override("font_color", Color(1.0, 0.45, 0.45))
+			btn.add_theme_color_override("font_color", Color(0.95, 0.55, 0.55))
 		btn.pressed.connect(_on_option_chosen.bind(opt, idx))
 		options_box.add_child(btn)
 		_option_buttons.append(btn)
@@ -542,7 +573,8 @@ func _build_orbit_alignment_ui(prev_result: String) -> void:
 		_ack_btn.visible = false
 
 	title_label.text = "BRİFİNG MİNİ GÖREV: FIRLATMA PENCERESİ & YÖRÜNGE HİZALAMA"
-	title_label.add_theme_color_override("font_color", Color(0.4, 0.9, 1.0))
+	title_label.add_theme_color_override("font_color", Color(0.55, 0.9, 1.0))
+	_set_frame_accent("blue")
 	desc_label.text = "KARAR: %s\nŞimdi roket fırlatma vektörünü hedef yörünge penceresine (Yeşil/Altın bölge) hizalayıp KİLİTLE! Tam isabet ek yakıt/kütle tasarrufu sağlar." % prev_result
 
 	for child in options_box.get_children():
@@ -550,7 +582,7 @@ func _build_orbit_alignment_ui(prev_result: String) -> void:
 
 	_orbit_status_lbl = Label.new()
 	_orbit_status_lbl.add_theme_font_size_override("font_size", 10)
-	_orbit_status_lbl.add_theme_color_override("font_color", Color(0.85, 0.95, 1.0))
+	_orbit_status_lbl.add_theme_color_override("font_color", Color(0.88, 0.94, 1.0))
 	options_box.add_child(_orbit_status_lbl)
 
 	var radar_bar: Control = Control.new()
@@ -589,6 +621,7 @@ func _build_orbit_alignment_ui(prev_result: String) -> void:
 
 	_orbit_lock_btn = Button.new()
 	_orbit_lock_btn.text = "FIRLATMA PENCERESİNİ KİLİTLE!"
+	_orbit_lock_btn.add_theme_font_size_override("font_size", 10)
 	_orbit_lock_btn.custom_minimum_size = Vector2(0, 26)
 	_orbit_lock_btn.pressed.connect(_on_orbit_lock_pressed)
 	options_box.add_child(_orbit_lock_btn)
@@ -648,7 +681,8 @@ func _build_power_wiring_ui(prev_result: String, preserve_matched: bool = false)
 		_ack_btn.visible = false
 
 	title_label.text = "GÜÇ LAB MİNİ GÖREV: INTERAKTİF KABLO & SİGORTA BAĞLANTISI"
-	title_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35))
+	title_label.add_theme_color_override("font_color", Color(0.58, 0.94, 0.78))
+	_set_frame_accent("green")
 	desc_label.text = "KARAR: %s\nSoldaki güç çıkış soketlerinden fareyle BASILI TUTUP ÇEKEREK sağdaki aynı renkli roket barası soketine kablo bağla (+15W Güç & +%%5 İniş)!" % prev_result
 
 	for child in options_box.get_children():

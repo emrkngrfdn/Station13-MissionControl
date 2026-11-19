@@ -1,10 +1,12 @@
 extends Node2D
 
+const StationFrameDrawer = preload("res://scripts/StationFrameDrawer.gd")
 const CARGO_BOX_SCENE: PackedScene = preload("res://scenes/entities/cargo_box.tscn")
 
 @onready var budget_label: Label = %BudgetLabel
 @onready var mass_label: Label = %MassLabel
 @onready var power_label: Label = %PowerLabel
+@onready var science_label: Label = get_node_or_null("%ScienceLabel") as Label
 @onready var data_label: Label = %DataLabel
 @onready var timer_label: Label = %TimerLabel
 @onready var status_label: Label = %StatusLabel
@@ -23,25 +25,34 @@ func _ready() -> void:
 	_show_status("Görev Başladı: %s — Terminallere yürüyüp [Space/E] ile etkileşime geç!" % String(GameState.current_mission.get("name", "")))
 
 func _style_status_banner() -> void:
-	var box_style: StyleBoxFlat = StyleBoxFlat.new()
-	box_style.bg_color = Color(0.05, 0.08, 0.14, 0.92)
-	box_style.border_width_left = 2
-	box_style.border_width_top = 2
-	box_style.border_width_right = 2
-	box_style.border_width_bottom = 2
-	box_style.border_color = Color(0.32, 0.65, 0.92, 1.0)
-	box_style.corner_radius_top_left = 4
-	box_style.corner_radius_top_right = 4
-	box_style.corner_radius_bottom_left = 4
-	box_style.corner_radius_bottom_right = 4
+	var top_bar: PanelContainer = get_node_or_null("HUD/TopBar") as PanelContainer
+	if top_bar != null:
+		var top_sb: StyleBoxFlat = StyleBoxFlat.new()
+		top_sb.bg_color = Color(0.11, 0.145, 0.21, 0.94)
+		top_sb.border_width_left = 1
+		top_sb.border_width_top = 1
+		top_sb.border_width_right = 1
+		top_sb.border_width_bottom = 2
+		top_sb.border_color = Color(0.38, 0.49, 0.64, 1.0)
+		top_sb.content_margin_left = 8.0
+		top_sb.content_margin_right = 8.0
+		top_sb.content_margin_top = 3.0
+		top_sb.content_margin_bottom = 3.0
+		top_sb.anti_aliasing = false
+		top_bar.add_theme_stylebox_override("panel", top_sb)
+
+	var box_style: StyleBoxFlat = StationFrameDrawer.make_modal_stylebox(
+		Color(0.08, 0.17, 0.30, 0.95),
+		Color(0.36, 0.68, 0.94, 1.0)
+	)
 	box_style.content_margin_left = 10.0
 	box_style.content_margin_right = 10.0
 	box_style.content_margin_top = 4.0
 	box_style.content_margin_bottom = 4.0
 	status_label.add_theme_stylebox_override("normal", box_style)
-	status_label.add_theme_font_size_override("font_size", 14)
+	status_label.add_theme_font_size_override("font_size", 11)
 	status_label.add_theme_color_override("font_color", Color(0.95, 0.98, 1.0, 1.0))
-	status_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 1.0))
+	status_label.add_theme_color_override("font_outline_color", Color(0.03, 0.05, 0.09, 0.95))
 	status_label.add_theme_constant_override("outline_size", 2)
 	status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
@@ -64,6 +75,14 @@ func _update_hud() -> void:
 
 	power_label.text = "POWER: %+.0fW" % GameState.net_power_w
 	power_label.modulate = Color(0.4, 0.95, 0.55) if power_ok else Color(1.0, 0.35, 0.35)
+
+	var target_sci: int = int(GameState.current_mission.get("target_science", 500))
+	var dsn_bonus_sci: int = GameState.get_dsn_bonus_science()
+	var sci_ok: bool = GameState.science_score >= target_sci
+	if science_label != null:
+		var bonus_tag: String = " (+%d)" % dsn_bonus_sci if dsn_bonus_sci > 0 else ""
+		science_label.text = "BİLİM: %d/%d%s" % [GameState.science_score, target_sci, bonus_tag]
+		science_label.modulate = Color(0.4, 0.95, 0.55) if sci_ok else Color(1.0, 0.85, 0.35)
 
 	data_label.text = "DATA: %.1f/%.0fGB | İNİŞ: %%%d" % [GameState.downloaded_data_gb, target_gb, GameState.landing_success_chance]
 

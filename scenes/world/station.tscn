@@ -324,7 +324,7 @@ theme = ExtResource("5_theme")
 
 [node name="HBox" type="HBoxContainer" parent="HUD/TopBar" unique_id=687284571]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 10
 alignment = 1
 
 [node name="BudgetLabel" type="Label" parent="HUD/TopBar/HBox" unique_id=677372650]
@@ -341,6 +341,11 @@ text = "MASS: 1800/3117kg"
 unique_name_in_owner = true
 layout_mode = 2
 text = "POWER: +4444W"
+
+[node name="ScienceLabel" type="Label" parent="HUD/TopBar/HBox" unique_id=1573960349]
+unique_name_in_owner = true
+layout_mode = 2
+text = "BİLİM: 0/750"
 
 [node name="DataLabel" type="Label" parent="HUD/TopBar/HBox" unique_id=1573960348]
 unique_name_in_owner = true

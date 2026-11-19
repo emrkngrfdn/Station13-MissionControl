@@ -147,40 +147,53 @@ func _unhandled_input(event: InputEvent) -> void:
 		if ke.pressed and not ke.echo and (ke.keycode == KEY_E or ke.physical_keycode == KEY_E):
 			try_interact()
 
+func _get_terminal_reach(t: Node2D, base_reach: float = 42.0) -> float:
+	var scale_mult: float = maxf(1.0, maxf(absf(t.scale.x), absf(t.scale.y)))
+	return maxf(base_reach, 34.0 * scale_mult)
+
+func _is_terminal_in_range(t: Node2D, foot_pos: Vector2, base_reach: float = 42.0) -> bool:
+	if t is Area2D and (t as Area2D).overlaps_body(self):
+		return true
+	return t.global_position.distance_to(foot_pos) <= _get_terminal_reach(t, base_reach)
+
 func _find_nearest_interactable() -> Node:
 	var best_node: Node = null
-	var best_dist: float = 42.0
+	var best_dist: float = 999999.0
 	var foot_pos: Vector2 = global_position + Vector2(0, 6)
 
 	if carried_box != null and is_instance_valid(carried_box):
 		for t in get_tree().get_nodes_in_group("terminal"):
 			if t is Node2D and int(t.get("terminal_type")) == 2: # ASSEMBLY
-				var d_asm: float = (t as Node2D).global_position.distance_to(foot_pos)
-				if d_asm <= 46.0:
-					return t
+				var t_node: Node2D = t as Node2D
+				if _is_terminal_in_range(t_node, foot_pos, 46.0):
+					return t_node
 
 	if carried_box == null:
 		for b in get_tree().get_nodes_in_group("cargo_box"):
 			if b is Node2D and is_instance_valid(b) and b.get("carrier") == null:
 				var d_box: float = (b as Node2D).global_position.distance_to(foot_pos)
-				if d_box < best_dist:
+				if d_box < 42.0 and d_box < best_dist:
 					best_dist = d_box
 					best_node = b
 
 	for t in get_tree().get_nodes_in_group("terminal"):
 		if t is Node2D and is_instance_valid(t):
-			var d_term: float = (t as Node2D).global_position.distance_to(foot_pos)
-			if d_term < best_dist:
+			var t_node: Node2D = t as Node2D
+			var d_term: float = t_node.global_position.distance_to(foot_pos)
+			if _is_terminal_in_range(t_node, foot_pos, 42.0) and d_term < best_dist:
 				best_dist = d_term
-				best_node = t
+				best_node = t_node
 
 	return best_node
 
 func try_interact() -> void:
 	var target: Node = _find_nearest_interactable()
 	if target == null and interactable_target != null and is_instance_valid(interactable_target):
-		if interactable_target is Node2D and (interactable_target as Node2D).global_position.distance_to(global_position) <= 48.0:
-			target = interactable_target
+		var foot_pos: Vector2 = global_position + Vector2(0, 6)
+		if interactable_target is Node2D:
+			var t_node: Node2D = interactable_target as Node2D
+			if _is_terminal_in_range(t_node, foot_pos, 48.0):
+				target = interactable_target
 
 	if target != null and is_instance_valid(target):
 		interactable_target = target

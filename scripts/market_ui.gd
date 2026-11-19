@@ -1,5 +1,7 @@
 extends PanelContainer
 
+const StationFrameDrawer = preload("res://scripts/StationFrameDrawer.gd")
+
 @onready var budget_label: Label = %MarketBudgetLabel
 @onready var rocket_option: OptionButton = %RocketOption
 @onready var parts_grid: GridContainer = %PartsGrid
@@ -21,6 +23,16 @@ var _purchased_list_label: Label = null
 
 func _ready() -> void:
 	visible = false
+	StationFrameDrawer.apply_modal_style(self, "blue")
+	StationFrameDrawer.style_close_button(get_node_or_null("VBox/Header/CloseBtn") as Button)
+	var title_lbl: Label = get_node_or_null("VBox/Header/Title") as Label
+	if title_lbl != null:
+		title_lbl.add_theme_font_size_override("font_size", 12)
+		title_lbl.add_theme_color_override("font_color", Color(0.98, 0.84, 0.45))
+	if budget_label != null:
+		budget_label.add_theme_font_size_override("font_size", 11)
+	if status_label != null:
+		status_label.add_theme_font_size_override("font_size", 10)
 	_ensure_category_bar_ui()
 	_ensure_purchased_list_ui()
 	EventBus.terminal_opened.connect(_on_terminal_opened)
@@ -39,7 +51,7 @@ func _ensure_category_bar_ui() -> void:
 		var btn: Button = Button.new()
 		btn.text = String(cat["label"])
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		btn.add_theme_font_size_override("font_size", 9)
+		btn.add_theme_font_size_override("font_size", 10)
 		btn.pressed.connect(_on_category_selected.bind(cid))
 		_category_bar.add_child(btn)
 		_category_buttons[cid] = btn
@@ -55,23 +67,12 @@ func _ensure_purchased_list_ui() -> void:
 		return
 
 	_purchased_panel = PanelContainer.new()
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0.06, 0.09, 0.15, 0.95)
-	style.border_width_left = 1
-	style.border_width_top = 1
-	style.border_width_right = 1
-	style.border_width_bottom = 1
-	style.border_color = Color(0.28, 0.48, 0.7, 1.0)
-	style.content_margin_left = 6.0
-	style.content_margin_right = 6.0
-	style.content_margin_top = 4.0
-	style.content_margin_bottom = 4.0
-	_purchased_panel.add_theme_stylebox_override("panel", style)
+	_purchased_panel.add_theme_stylebox_override("panel", StationFrameDrawer.make_card_stylebox(Color(0.38, 0.5, 0.66, 1.0), Color(0.12, 0.16, 0.23, 0.95)))
 
 	_purchased_list_label = Label.new()
 	_purchased_list_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_purchased_list_label.add_theme_font_size_override("font_size", 10)
-	_purchased_list_label.add_theme_color_override("font_color", Color(0.82, 0.94, 1.0))
+	_purchased_list_label.add_theme_color_override("font_color", Color(0.86, 0.93, 1.0))
 	_purchased_list_label.text = "ALINAN EKİPMANLAR: Henüz satın alma yapılmadı."
 	_purchased_panel.add_child(_purchased_list_label)
 
@@ -115,8 +116,22 @@ func _refresh_category_buttons() -> void:
 		var is_active: bool = (cid == _selected_category)
 		btn.add_theme_color_override(
 			"font_color",
-			Color(1.0, 0.85, 0.35) if is_active else Color(0.8, 0.88, 0.95)
+			Color(1.0, 0.88, 0.35) if is_active else Color(0.76, 0.86, 0.96)
 		)
+		var tab_sb: StyleBoxFlat = StyleBoxFlat.new()
+		tab_sb.bg_color = Color(0.18, 0.25, 0.36, 1.0) if is_active else Color(0.08, 0.12, 0.2, 0.95)
+		tab_sb.border_width_left = 1
+		tab_sb.border_width_top = 2 if is_active else 1
+		tab_sb.border_width_right = 1
+		tab_sb.border_width_bottom = 2
+		tab_sb.border_color = Color(0.95, 0.72, 0.22, 1.0) if is_active else Color(0.25, 0.38, 0.52, 1.0)
+		tab_sb.corner_radius_top_left = 2
+		tab_sb.corner_radius_top_right = 2
+		tab_sb.content_margin_left = 6.0
+		tab_sb.content_margin_right = 6.0
+		tab_sb.content_margin_top = 3.0
+		tab_sb.content_margin_bottom = 3.0
+		btn.add_theme_stylebox_override("normal", tab_sb)
 
 func _refresh_all() -> void:
 	if not visible:
@@ -229,11 +244,14 @@ func _populate_parts() -> void:
 		var card: PanelContainer = PanelContainer.new()
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		var card_border: Color = Color(0.45, 0.75, 0.58, 1.0) if installed else (Color(0.78, 0.66, 0.42, 1.0) if bought_count > 0 else Color(0.34, 0.43, 0.56, 1.0))
+		var card_bg: Color = Color(0.14, 0.2, 0.23, 0.95) if installed else Color(0.145, 0.185, 0.26, 0.95)
+		card.add_theme_stylebox_override("panel", StationFrameDrawer.make_card_stylebox(card_border, card_bg))
 
 		var vbox: VBoxContainer = VBoxContainer.new()
 		vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		vbox.add_theme_constant_override("separation", 3)
+		vbox.add_theme_constant_override("separation", 2)
 
 		var title: Label = Label.new()
 		var badge_txt: String = ""
@@ -243,7 +261,8 @@ func _populate_parts() -> void:
 			badge_txt += " [MONTE]"
 		title.text = String(p.get("name", "Parça")) + badge_txt
 		title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		title.add_theme_color_override("font_color", Color(0.45, 0.95, 0.6) if installed else Color(0.45, 0.85, 1.0))
+		title.add_theme_font_size_override("font_size", 11)
+		title.add_theme_color_override("font_color", Color(0.55, 0.95, 0.72) if installed else Color(0.68, 0.88, 1.0))
 		vbox.add_child(title)
 
 		var stats: Label = Label.new()
@@ -258,21 +277,23 @@ func _populate_parts() -> void:
 			int(p.get("science", 0))
 		]
 		stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		stats.add_theme_font_size_override("font_size", 9)
+		stats.add_theme_font_size_override("font_size", 10)
+		stats.add_theme_color_override("font_color", Color(0.95, 0.88, 0.72))
 		vbox.add_child(stats)
 
 		var note: Label = Label.new()
 		note.text = String(p.get("notes", ""))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		note.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		note.add_theme_font_size_override("font_size", 8)
-		note.add_theme_color_override("font_color", Color(0.75, 0.8, 0.88))
+		note.add_theme_font_size_override("font_size", 9)
+		note.add_theme_color_override("font_color", Color(0.78, 0.84, 0.92))
 		vbox.add_child(note)
 
 		var btn: Button = Button.new()
 		btn.text = "SATIN AL ($%dM)" % int(p.get("cost_m", 0))
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.custom_minimum_size = Vector2(0, 24)
+		btn.add_theme_font_size_override("font_size", 10)
 		btn.pressed.connect(_on_buy_part_pressed.bind(p))
 		vbox.add_child(btn)
 

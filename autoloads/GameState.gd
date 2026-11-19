@@ -9,6 +9,9 @@ const ROOM_HEARTBEAT_TIMEOUT_SEC: float = 6.0
 const CRISIS_MIN_INTERVAL_SEC: float = 95.0
 const CRISIS_MAX_INTERVAL_SEC: float = 135.0
 const MAX_RANDOM_CRISES_PER_MISSION: int = 2
+const DSN_EXTRA_STEP_GB: float = 30.0
+const DSN_EXTRA_SCIENCE_PER_STEP: int = 40
+const DSN_MAX_EXTRA_STEPS: int = 4
 const SLOT_COLORS: Array[Color] = [
 	Color.CORAL,
 	Color.DODGER_BLUE,
@@ -1023,9 +1026,24 @@ func recalculate() -> void:
 	if dsn_locked:
 		landing_success_chance += 8
 
+	science_score += get_dsn_bonus_science()
+
 	science_score = max(0, science_score)
 	landing_success_chance = clamp(landing_success_chance, 0, 100)
 	EventBus.telemetry_changed.emit()
+
+func get_dsn_extra_gb() -> float:
+	return maxf(0.0, downloaded_data_gb - get_target_download_gb())
+
+func get_dsn_bonus_tiers_completed() -> int:
+	var extra_gb: float = get_dsn_extra_gb()
+	return clampi(int(floor(extra_gb / DSN_EXTRA_STEP_GB)), 0, DSN_MAX_EXTRA_STEPS)
+
+func get_dsn_bonus_science() -> int:
+	return get_dsn_bonus_tiers_completed() * DSN_EXTRA_SCIENCE_PER_STEP
+
+func get_dsn_max_bonus_gb() -> float:
+	return get_target_download_gb() + (DSN_EXTRA_STEP_GB * float(DSN_MAX_EXTRA_STEPS))
 
 func sync_dsn_input(new_freq: float) -> void:
 	dsn_freq_value = clampf(new_freq, 0.0, 100.0)
