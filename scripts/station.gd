@@ -22,7 +22,8 @@ func _ready() -> void:
 	if EventBus.has_signal("status_message"):
 		EventBus.status_message.connect(_on_status_message)
 	_update_hud()
-	_show_status("Görev Başladı: %s — Terminallere yürüyüp [Space/E] ile etkileşime geç!" % String(GameState.current_mission.get("name", "")))
+	_show_status("Görev: %s — Terminallerle etkileşim için [E] veya Etkileşim butonunu kullan." % String(GameState.current_mission.get("name", "")))
+	_show_mission_intro_modal()
 
 func _style_status_banner() -> void:
 	var top_bar: PanelContainer = get_node_or_null("HUD/TopBar") as PanelContainer
@@ -117,9 +118,82 @@ func _on_interact_btn_pressed() -> void:
 	if player and player.has_method("try_interact"):
 		player.try_interact()
 
+func _on_joystick_direction_changed(dir: Vector2) -> void:
+	if player != null:
+		player.virtual_move_dir = dir
+
 func _show_status(msg: String, is_error: bool = false) -> void:
 	status_label.text = msg
 	if is_error:
 		status_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.4, 1.0))
 	else:
 		status_label.add_theme_color_override("font_color", Color(0.95, 0.98, 0.72, 1.0))
+
+func _show_mission_intro_modal() -> void:
+	var hud: CanvasLayer = get_node_or_null("HUD") as CanvasLayer
+	if hud == null:
+		return
+
+	var backdrop: ColorRect = ColorRect.new()
+	backdrop.name = "MissionIntroBackdrop"
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.color = Color(0.02, 0.04, 0.09, 0.65)
+	backdrop.z_index = 55
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	hud.add_child(backdrop)
+
+	var center: CenterContainer = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.add_child(center)
+
+	var panel: PanelContainer = PanelContainer.new()
+	panel.custom_minimum_size = Vector2(390, 0)
+	StationFrameDrawer.apply_modal_style(panel, "blue")
+	center.add_child(panel)
+
+	var vbox: VBoxContainer = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 6)
+	panel.add_child(vbox)
+
+	var m_name: String = String(GameState.current_mission.get("name", "Uzay Görevi"))
+	var target_sci: int = int(GameState.current_mission.get("target_science", 500))
+	var target_gb: float = GameState.get_target_download_gb()
+	var eff_limit: float = GameState.get_effective_mass_limit_kg()
+
+	var title_lbl: Label = Label.new()
+	title_lbl.text = "GÖREV AMACI: %s" % m_name.to_upper()
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.add_theme_font_size_override("font_size", 12)
+	title_lbl.add_theme_color_override("font_color", Color(0.55, 0.90, 1.0))
+	vbox.add_child(title_lbl)
+
+	var goal_lbl: Label = Label.new()
+	goal_lbl.text = "Hedefler: Kütle ≤ %.0f kg | Bilim ≥ %d | Veri ≥ %.0f GB" % [eff_limit, target_sci, target_gb]
+	goal_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	goal_lbl.add_theme_font_size_override("font_size", 10)
+	goal_lbl.add_theme_color_override("font_color", Color(0.95, 0.88, 0.45))
+	vbox.add_child(goal_lbl)
+
+	var steps_lbl: Label = Label.new()
+	steps_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	steps_lbl.add_theme_font_size_override("font_size", 10)
+	steps_lbl.add_theme_color_override("font_color", Color(0.90, 0.95, 1.0))
+	steps_lbl.text = (
+		"NE YAPACAĞIZ?\n" +
+		"1. Brifing: Görevi onayla ve yörüngeyi kilitle.\n" +
+		"2. Güç Lab: Güç sistemini seç ve kabloları bağla.\n" +
+		"3. Mağaza & Montaj: Parça al, gelen kargoyu Monte Et terminaline bırak.\n" +
+		"4. DSN Kulesi: Gerekli veriyi (DATA) indir.\n" +
+		"5. Fırlat: Tüm şartlar tamamsa roketi fırlat!"
+	)
+	vbox.add_child(steps_lbl)
+
+	var start_btn: Button = Button.new()
+	start_btn.text = "ANLADIM / BAŞLA"
+	start_btn.custom_minimum_size = Vector2(150, 26)
+	start_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	start_btn.add_theme_font_size_override("font_size", 10)
+	start_btn.pressed.connect(func() -> void:
+		backdrop.queue_free()
+	)
+	vbox.add_child(start_btn)

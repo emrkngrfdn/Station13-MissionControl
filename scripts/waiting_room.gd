@@ -411,3 +411,11 @@ func _on_start_mission_pressed() -> void:
 		return
 	GameState.start_mission()
 	get_tree().change_scene_to_file("res://scenes/world/station.tscn")
+
+func _on_joystick_direction_changed(dir: Vector2) -> void:
+	if player != null:
+		player.virtual_move_dir = dir
+
+func _on_interact_btn_pressed() -> void:
+	if player != null and player.has_method("try_interact"):
+		player.try_interact()

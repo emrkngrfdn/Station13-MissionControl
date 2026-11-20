@@ -12,6 +12,7 @@
 [ext_resource type="Texture2D" uid="uid://bsqyv0duk1n21" path="res://assets/ui/btn_start_mission.png" id="10_btn_start"]
 [ext_resource type="Texture2D" uid="uid://coey807p3tng3" path="res://assets/ui/settings_colors_bar.png" id="11_colors_bar"]
 [ext_resource type="Texture2D" uid="uid://cvqflxo52yhee" path="res://assets/ui/settings_panel_sheet.png" id="12_settings_sheet"]
+[ext_resource type="PackedScene" path="res://scenes/ui/virtual_joystick.tscn" id="13_vj"]
 
 [sub_resource type="RectangleShape2D" id="WallH"]
 size = Vector2(529, 14)
@@ -308,6 +309,20 @@ texture_normal = ExtResource("10_btn_start")
 ignore_texture_size = true
 stretch_mode = 5
 
+[node name="VirtualJoystick" parent="HUD" instance=ExtResource("13_vj")]
+offset_left = 34.0
+offset_top = 236.0
+offset_right = 110.0
+offset_bottom = 312.0
+
+[node name="InteractBtn" type="Button" parent="HUD"]
+offset_left = 548.0
+offset_top = 286.0
+offset_right = 632.0
+offset_bottom = 312.0
+theme = ExtResource("4_theme")
+text = "ETKİLEŞİM"
+
 [node name="SettingsBackdrop" type="ColorRect" parent="HUD" unique_id=501122410]
 unique_name_in_owner = true
 visible = false
@@ -515,6 +530,8 @@ theme_override_constants/separation = 4
 
 [connection signal="pressed" from="HUD/BottomBar/BackBtn" to="." method="_on_back_menu_pressed"]
 [connection signal="pressed" from="HUD/BottomBar/StartBtn" to="." method="_on_start_mission_pressed"]
+[connection signal="direction_changed" from="HUD/VirtualJoystick" to="." method="_on_joystick_direction_changed"]
+[connection signal="pressed" from="HUD/InteractBtn" to="." method="_on_interact_btn_pressed"]
 [connection signal="pressed" from="HUD/HostSettingsPanel/CloseBtn" to="." method="_on_close_settings_pressed"]
 [connection signal="item_selected" from="HUD/HostSettingsPanel/MissionOption" to="." method="_on_mission_selected"]
 [connection signal="item_selected" from="HUD/HostSettingsPanel/ModifierOption" to="." method="_on_modifier_selected"]

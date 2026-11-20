@@ -11,6 +11,7 @@
 [ext_resource type="Texture2D" uid="uid://bcxbsqinsohfm" path="res://assets/station_bg.png" id="9_bg"]
 [ext_resource type="Texture2D" uid="uid://sgpnploekpqb" path="res://assets/station_fg.png" id="10_fg"]
 [ext_resource type="Texture2D" uid="uid://cukxyh3svwj8y" path="res://assets/station_fg_walls.png" id="11_fg_walls"]
+[ext_resource type="PackedScene" path="res://scenes/ui/virtual_joystick.tscn" id="12_vj"]
 
 [node name="Station" type="Node2D" unique_id=719507966]
 y_sort_enabled = true
@@ -375,6 +376,12 @@ offset_bottom = 356.0
 theme = ExtResource("5_theme")
 text = "INTERACT"
 
+[node name="VirtualJoystick" parent="HUD" instance=ExtResource("12_vj")]
+offset_left = 22.0
+offset_top = 256.0
+offset_right = 98.0
+offset_bottom = 332.0
+
 [node name="MarketUI" parent="HUD" unique_id=1606265529 instance=ExtResource("6_market")]
 
 [node name="SideQuestModal" parent="HUD" unique_id=461934991 instance=ExtResource("7_quest")]
@@ -382,3 +389,4 @@ text = "INTERACT"
 [node name="DSNMinigame" parent="HUD" unique_id=1234290514 instance=ExtResource("8_dsn")]
 
 [connection signal="pressed" from="HUD/InteractBtn" to="." method="_on_interact_btn_pressed"]
+[connection signal="direction_changed" from="HUD/VirtualJoystick" to="." method="_on_joystick_direction_changed"]

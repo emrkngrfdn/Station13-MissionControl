@@ -220,17 +220,17 @@ func _open_power_lab_summary() -> void:
 		_close_btn.visible = true
 	if _ack_btn != null:
 		_ack_btn.visible = true
-	title_label.text = "GÜÇ LABORATUVARI: SİSTEM AKTİF"
+	title_label.text = "GÜÇ LAB: HAZIR"
 	title_label.add_theme_color_override("font_color", Color(0.45, 0.95, 0.65))
 	_set_frame_accent("green")
-	desc_label.text = "Güç kaynağı kararı ve sigorta/bara kablo bağlantıları tamamlandı.\n• Net Güç Dengesi: %+.0f W\n• Batarya Durumu: %%%.0f" % [
+	desc_label.text = "Net Güç: %+.0f W  |  Batarya: %%%.0f" % [
 		GameState.net_power_w,
 		GameState.battery_charge_pct
 	]
 	for child in options_box.get_children():
 		child.queue_free()
 	feedback_label.add_theme_color_override("font_color", Color(0.55, 0.9, 1.0))
-	feedback_label.text = "Güç Lab işlemleri tamam! Ek güç panelleri veya bataryalar için Tedarik Mağazası'nı kullanabilirsin."
+	feedback_label.text = "Ek güç için Mağaza'yı kullanabilirsin."
 
 func _get_next_briefing_quest() -> Dictionary:
 	var quests: Array = GameState.get_available_side_quests_for_mission()
@@ -284,7 +284,7 @@ func _open_briefing_summary() -> void:
 		_build_orbit_alignment_ui("Görev hedefleri onaylandı.")
 		return
 	feedback_label.add_theme_color_override("font_color", Color(0.55, 0.9, 1.0))
-	feedback_label.text = "Tüm brifing kararları ve yörünge hizalaması tamam! Mağaza ve Güç Lab'a geçebilirsin."
+	feedback_label.text = "Brifing tamam! Mağaza ve Güç Lab'a geçebilirsin."
 
 func open_quest(quest_data: Dictionary) -> void:
 	_current_quest = quest_data
@@ -680,10 +680,10 @@ func _build_power_wiring_ui(prev_result: String, preserve_matched: bool = false)
 	if _ack_btn != null:
 		_ack_btn.visible = false
 
-	title_label.text = "GÜÇ LAB MİNİ GÖREV: INTERAKTİF KABLO & SİGORTA BAĞLANTISI"
+	title_label.text = "GÜÇ LAB: KABLO BAĞLANTISI"
 	title_label.add_theme_color_override("font_color", Color(0.58, 0.94, 0.78))
 	_set_frame_accent("green")
-	desc_label.text = "KARAR: %s\nSoldaki güç çıkış soketlerinden fareyle BASILI TUTUP ÇEKEREK sağdaki aynı renkli roket barası soketine kablo bağla (+15W Güç & +%%5 İniş)!" % prev_result
+	desc_label.text = "Aynı renkli soketleri birbirine bağla (+15W Güç, +%5 İniş)."
 
 	for child in options_box.get_children():
 		child.queue_free()
@@ -711,10 +711,10 @@ func _build_power_wiring_ui(prev_result: String, preserve_matched: bool = false)
 
 	if preserve_matched:
 		feedback_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.35))
-		feedback_label.text = "BAĞLANTI KOPTU! Atan kabloları yeniden bağla (%d/4 bağlı)." % _matched_wires.size()
+		feedback_label.text = "Kablo koptu! Yeniden bağla (%d/4)." % _matched_wires.size()
 	else:
 		feedback_label.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0))
-		feedback_label.text = "Soldaki renkli soketten fareyle basılı tutup sağdaki aynı renkli sokete kablo çek (0/4 bağlandı)."
+		feedback_label.text = "Bağlı: 0/4"
 
 func _get_wire_row_y(row_idx: int) -> float:
 	return 8.0 + float(row_idx) * 27.0
@@ -807,26 +807,26 @@ func _on_wire_canvas_gui_input(event: InputEvent) -> void:
 							_wire_canvas.queue_redraw()
 							if broken_names != "":
 								feedback_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.35))
-								feedback_label.text = "UYARI — BAĞ BOZULDU! %s bağlantısı gevşedi (%d/4). Lütfen yeniden bağla!" % [broken_names, _matched_wires.size()]
+								feedback_label.text = "Kablo koptu: %s (%d/4). Tekrar bağla!" % [broken_names, _matched_wires.size()]
 								return
 							if _matched_wires.size() >= 4:
 								_wiring_done = true
 								GameState.power_wiring_broken = false
-								var wire_note: String = "Güç Lab sigorta ve bara kabloları eksiksiz bağlandı (+15 W güç verimi, +%5 iniş başarısı)!"
+								var wire_note: String = "Güç Lab kabloları bağlandı (+15 W, +%5 iniş)."
 								if not _wire_bonus_active:
 									_wire_bonus_active = true
 									GameState.apply_minigame_bonus(0.0, 15.0, 5, 0, wire_note)
 								feedback_label.add_theme_color_override("font_color", Color(0.4, 0.95, 0.55))
-								feedback_label.text = "TÜM KABLOLAR BAĞLANDI (4/4)! " + wire_note
+								feedback_label.text = "Tamamlandı (4/4)! +15 W güç, +%5 iniş."
 								if _ack_btn != null:
 									_ack_btn.visible = true
 							else:
 								feedback_label.add_theme_color_override("font_color", Color(0.45, 0.95, 0.65))
-								feedback_label.text = "Kablo bağlandı (%d/4)! Diğer kabloları da çekip bağla." % _matched_wires.size()
+								feedback_label.text = "Bağlı: %d/4" % _matched_wires.size()
 							return
 						elif target_wid != _dragging_wire_id:
 							feedback_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.35))
-							feedback_label.text = "KISA DEVRE! Aynı renkteki bara soketine kablo çekmelisin."
+							feedback_label.text = "Yanlış renk! Aynı renge bağla."
 					_dragging_wire_id = -1
 					_wire_canvas.queue_redraw()
 	elif event is InputEventMouseMotion:

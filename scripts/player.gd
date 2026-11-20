@@ -9,6 +9,7 @@ const COL_CENTER_X: Array[float] = [32.0, 28.0, 24.0, 18.0, 16.0]
 
 var interactable_target: Node = null
 var carried_box: Node2D = null
+var virtual_move_dir: Vector2 = Vector2.ZERO
 
 var _row_idx: int = 0
 var _anim_timer: float = 0.0
@@ -49,7 +50,8 @@ func _color_to_row(c: Color) -> int:
 func _physics_process(delta: float) -> void:
 	if not is_local_player:
 		return
-	var input_dir: Vector2 = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+	var kb_dir: Vector2 = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+	var input_dir: Vector2 = (kb_dir + virtual_move_dir).limit_length(1.0)
 	var speed_mult: float = 0.80 if carried_box != null else 1.0
 	velocity = input_dir * base_speed * speed_mult
 	move_and_slide()

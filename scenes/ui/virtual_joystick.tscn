@@ -1,0 +1,11 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/virtual_joystick.gd" id="1_vj"]
+
+[node name="VirtualJoystick" type="Control"]
+custom_minimum_size = Vector2(76, 76)
+layout_mode = 3
+anchors_preset = 0
+offset_right = 76.0
+offset_bottom = 76.0
+script = ExtResource("1_vj")
