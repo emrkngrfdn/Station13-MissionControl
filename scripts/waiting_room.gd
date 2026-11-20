@@ -21,9 +21,9 @@ const DIGIT_REGIONS: Array[Rect2] = [
 ]
 
 const CREW_POSITIONS: Array[Vector2] = [
-	Vector2(370, 158),
-	Vector2(415, 158),
-	Vector2(370, 210)
+	Vector2(305, 189),
+	Vector2(349, 189),
+	Vector2(327, 212)
 ]
 
 const SUIT_COLORS: Array[Color] = [
@@ -85,6 +85,18 @@ func _ready() -> void:
 	_refresh_host_permissions()
 	_refresh_top_bar()
 	_refresh_leaderboard()
+
+func _exit_tree() -> void:
+	if EventBus.lobby_updated.is_connected(_on_lobby_updated):
+		EventBus.lobby_updated.disconnect(_on_lobby_updated)
+	if EventBus.telemetry_changed.is_connected(_refresh_top_bar):
+		EventBus.telemetry_changed.disconnect(_refresh_top_bar)
+	if EventBus.terminal_opened.is_connected(_on_terminal_opened):
+		EventBus.terminal_opened.disconnect(_on_terminal_opened)
+	if EventBus.remote_player_updated.is_connected(_on_remote_player_updated):
+		EventBus.remote_player_updated.disconnect(_on_remote_player_updated)
+	if EventBus.remote_player_left.is_connected(_on_remote_player_left):
+		EventBus.remote_player_left.disconnect(_on_remote_player_left)
 
 func _process(delta: float) -> void:
 	_beacon_t += delta

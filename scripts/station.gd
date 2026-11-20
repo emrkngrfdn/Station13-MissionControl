@@ -31,9 +31,147 @@ func _ready() -> void:
 	if EventBus.has_signal("status_message"):
 		EventBus.status_message.connect(_on_status_message)
 	_spawn_remote_players()
+	_setup_return_lobby_button()
 	_update_hud()
 	_show_status("Görev: %s — Terminallerle etkileşim için [E] veya Etkileşim butonunu kullan." % String(GameState.current_mission.get("name", "")))
 	_show_mission_intro_modal()
+
+func _exit_tree() -> void:
+	if EventBus.telemetry_changed.is_connected(_update_hud):
+		EventBus.telemetry_changed.disconnect(_update_hud)
+	if EventBus.cargo_spawned.is_connected(_on_cargo_spawned):
+		EventBus.cargo_spawned.disconnect(_on_cargo_spawned)
+	if EventBus.terminal_opened.is_connected(_on_terminal_opened):
+		EventBus.terminal_opened.disconnect(_on_terminal_opened)
+	if EventBus.side_quest_resolved.is_connected(_on_side_quest_resolved):
+		EventBus.side_quest_resolved.disconnect(_on_side_quest_resolved)
+	if EventBus.remote_player_updated.is_connected(_on_remote_player_updated):
+		EventBus.remote_player_updated.disconnect(_on_remote_player_updated)
+	if EventBus.remote_player_left.is_connected(_on_remote_player_left):
+		EventBus.remote_player_left.disconnect(_on_remote_player_left)
+	if EventBus.box_picked_up.is_connected(_on_box_picked_up):
+		EventBus.box_picked_up.disconnect(_on_box_picked_up)
+	if EventBus.box_dropped.is_connected(_on_box_dropped):
+		EventBus.box_dropped.disconnect(_on_box_dropped)
+	if EventBus.box_installed.is_connected(_on_box_installed):
+		EventBus.box_installed.disconnect(_on_box_installed)
+	if EventBus.has_signal("status_message") and EventBus.status_message.is_connected(_on_status_message):
+		EventBus.status_message.disconnect(_on_status_message)
+
+func _setup_return_lobby_button() -> void:
+	var hud: CanvasLayer = get_node_or_null("HUD") as CanvasLayer
+	if hud == null or hud.get_node_or_null("ReturnLobbyBtn") != null:
+		return
+
+	var is_client: bool = GameState.is_network_active and not GameState.is_room_host
+	var btn: Button = Button.new()
+	btn.name = "ReturnLobbyBtn"
+	btn.text = "< ODADAN ÇIK" if is_client else "< LOBİYE DÖN"
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	btn.offset_left = 8.0
+	btn.offset_top = 29.0
+	btn.offset_right = 88.0
+	btn.offset_bottom = 47.0
+	btn.add_theme_font_size_override("font_size", 8)
+
+	var sb_norm: StyleBoxFlat = StyleBoxFlat.new()
+	sb_norm.bg_color = Color(0.14, 0.08, 0.12, 0.88)
+	sb_norm.border_width_left = 1
+	sb_norm.border_width_top = 1
+	sb_norm.border_width_right = 1
+	sb_norm.border_width_bottom = 1
+	sb_norm.border_color = Color(0.92, 0.45, 0.42, 0.9)
+	sb_norm.corner_radius_top_left = 2
+	sb_norm.corner_radius_top_right = 2
+	sb_norm.corner_radius_bottom_right = 2
+	sb_norm.corner_radius_bottom_left = 2
+	sb_norm.content_margin_left = 5.0
+	sb_norm.content_margin_right = 5.0
+	sb_norm.content_margin_top = 2.0
+	sb_norm.content_margin_bottom = 2.0
+
+	var sb_hov: StyleBoxFlat = sb_norm.duplicate() as StyleBoxFlat
+	sb_hov.bg_color = Color(0.24, 0.11, 0.16, 0.95)
+	sb_hov.border_color = Color(1.0, 0.62, 0.58, 1.0)
+
+	btn.add_theme_stylebox_override("normal", sb_norm)
+	btn.add_theme_stylebox_override("hover", sb_hov)
+	btn.add_theme_stylebox_override("pressed", sb_hov)
+	btn.add_theme_color_override("font_color", Color(1.0, 0.84, 0.82, 1.0))
+	btn.pressed.connect(_show_return_confirm_modal)
+	hud.add_child(btn)
+
+func _show_return_confirm_modal() -> void:
+	var hud: CanvasLayer = get_node_or_null("HUD") as CanvasLayer
+	if hud == null or hud.get_node_or_null("ReturnConfirmBackdrop") != null:
+		return
+
+	var is_client: bool = GameState.is_network_active and not GameState.is_room_host
+	var backdrop: ColorRect = ColorRect.new()
+	backdrop.name = "ReturnConfirmBackdrop"
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.color = Color(0.02, 0.04, 0.09, 0.68)
+	backdrop.z_index = 65
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	hud.add_child(backdrop)
+
+	var center: CenterContainer = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.add_child(center)
+
+	var panel: PanelContainer = PanelContainer.new()
+	panel.custom_minimum_size = Vector2(280, 0)
+	StationFrameDrawer.apply_modal_style(panel, "red")
+	center.add_child(panel)
+
+	var vbox: VBoxContainer = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	panel.add_child(vbox)
+
+	var title_lbl: Label = Label.new()
+	title_lbl.text = "GÖREVDEN AYRIL" if is_client else "LOBİYE DÖN"
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.add_theme_font_size_override("font_size", 11)
+	title_lbl.add_theme_color_override("font_color", Color(1.0, 0.58, 0.55))
+	vbox.add_child(title_lbl)
+
+	var body_lbl: Label = Label.new()
+	body_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	body_lbl.add_theme_font_size_override("font_size", 9)
+	body_lbl.add_theme_color_override("font_color", Color(0.92, 0.95, 1.0))
+	body_lbl.text = (
+		"Aktif görevden ayrılıp ana menüye dönmek istiyor musun?"
+		if is_client else
+		"Görevi yarıda bırakıp tüm ekiple bekleme odasına (lobiye) dönmek istiyor musun?"
+	)
+	vbox.add_child(body_lbl)
+
+	var row: HBoxContainer = HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	vbox.add_child(row)
+
+	var cancel_btn: Button = Button.new()
+	cancel_btn.text = "İPTAL"
+	cancel_btn.custom_minimum_size = Vector2(90, 24)
+	cancel_btn.add_theme_font_size_override("font_size", 9)
+	cancel_btn.pressed.connect(func() -> void:
+		backdrop.queue_free()
+	)
+	row.add_child(cancel_btn)
+
+	var confirm_btn: Button = Button.new()
+	confirm_btn.text = "EVET, DÖN"
+	confirm_btn.custom_minimum_size = Vector2(100, 24)
+	confirm_btn.add_theme_font_size_override("font_size", 9)
+	confirm_btn.add_theme_color_override("font_color", Color(1.0, 0.55, 0.52))
+	confirm_btn.pressed.connect(func() -> void:
+		backdrop.queue_free()
+		GameState.abort_mission_to_lobby()
+	)
+	row.add_child(confirm_btn)
 
 func _spawn_remote_players() -> void:
 	if not GameState.is_network_active:

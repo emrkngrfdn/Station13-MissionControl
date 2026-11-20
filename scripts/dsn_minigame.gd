@@ -46,6 +46,12 @@ func _ready() -> void:
 	if freq_slider != null and not freq_slider.value_changed.is_connected(_on_slider_value_changed):
 		freq_slider.value_changed.connect(_on_slider_value_changed)
 
+func _exit_tree() -> void:
+	if EventBus.terminal_opened.is_connected(_on_terminal_opened):
+		EventBus.terminal_opened.disconnect(_on_terminal_opened)
+	if EventBus.telemetry_changed.is_connected(_on_telemetry_synced):
+		EventBus.telemetry_changed.disconnect(_on_telemetry_synced)
+
 func _ensure_tip_ui() -> void:
 	var vbox: Node = get_node_or_null("VBox")
 	if vbox == null or _tip_label != null:

@@ -19,7 +19,9 @@ var _walk_frame: int = 0
 var _vert_phase: int = 0
 var _current_col: int = 0
 var _net_target_pos: Vector2 = Vector2.ZERO
+var _has_net_state: bool = false
 var _net_send_timer: float = 0.0
+var _net_idle_timer: float = 0.0
 var _last_sent_sig: String = ""
 var _name_label: Label = null
 
@@ -35,12 +37,65 @@ func _ready() -> void:
 		collision_mask = 0
 		_net_target_pos = global_position
 		_ensure_name_label()
+	else:
+		EventBus.network_states_requested.connect(_on_network_states_requested)
+		if GameState.is_network_active:
+			call_deferred("_announce_presence")
 	_sync_color_row()
 	var cam: Camera2D = get_node_or_null("Camera2D") as Camera2D
 	if cam != null:
 		cam.enabled = is_local_player
 		if is_local_player:
 			cam.make_current()
+
+func _exit_tree() -> void:
+	if EventBus.lobby_updated.is_connected(_on_lobby_updated):
+		EventBus.lobby_updated.disconnect(_on_lobby_updated)
+	if EventBus.network_states_requested.is_connected(_on_network_states_requested):
+		EventBus.network_states_requested.disconnect(_on_network_states_requested)
+
+func _get_scene_tag() -> String:
+	if not is_inside_tree() or get_tree().current_scene == null:
+		return ""
+	var p: String = get_tree().current_scene.scene_file_path
+	if p.contains("waiting_room"):
+		return "waiting"
+	if p.contains("station"):
+		return "station"
+	return ""
+
+func _announce_presence() -> void:
+	if not is_local_player or not GameState.is_network_active:
+		return
+	force_send_network_state()
+	NetworkClient.send_relay("request_states", { "scene": _get_scene_tag() })
+
+func _on_network_states_requested(scene_tag: String) -> void:
+	if is_local_player and GameState.is_network_active and (scene_tag == "" or scene_tag == _get_scene_tag()):
+		force_send_network_state()
+
+func force_send_network_state() -> void:
+	if not is_local_player or not GameState.is_network_active or not is_inside_tree():
+		return
+	_net_send_timer = 0.0
+	_net_idle_timer = 0.0
+	_last_sent_sig = "%d|%.1f|%.1f|%d|%s|%.2f" % [
+		_current_col,
+		global_position.x,
+		global_position.y,
+		1 if sprite.flip_h else 0,
+		str(carried_box != null),
+		sprite.rotation
+	]
+	NetworkClient.send_relay("player_state", {
+		"scene": _get_scene_tag(),
+		"x": snappedf(global_position.x, 0.1),
+		"y": snappedf(global_position.y, 0.1),
+		"anim_col": _current_col,
+		"flip_h": sprite.flip_h,
+		"rot": snappedf(sprite.rotation, 0.01),
+		"off_y": snappedf(sprite.offset.y, 0.1)
+	})
 
 func setup_remote(p_peer_id: int, p_tag: String, start_pos: Vector2) -> void:
 	is_local_player = false
@@ -75,12 +130,17 @@ func _ensure_name_label() -> void:
 	_name_label.text = player_tag
 
 func apply_remote_state(state: Dictionary) -> void:
+	var msg_scene: String = String(state.get("scene", ""))
+	var my_scene: String = _get_scene_tag()
+	if msg_scene != "" and my_scene != "" and msg_scene != my_scene:
+		return
 	_net_target_pos = Vector2(
 		float(state.get("x", global_position.x)),
 		float(state.get("y", global_position.y))
 	)
-	if global_position.distance_to(_net_target_pos) > 160.0:
+	if not _has_net_state or global_position.distance_to(_net_target_pos) > 160.0:
 		global_position = _net_target_pos
+		_has_net_state = true
 	sprite.flip_h = bool(state.get("flip_h", false))
 	sprite.rotation = float(state.get("rot", 0.0))
 	sprite.offset.y = float(state.get("off_y", 0.0))
@@ -88,6 +148,8 @@ func apply_remote_state(state: Dictionary) -> void:
 
 func _on_lobby_updated(_players: Array) -> void:
 	_sync_color_row()
+	if is_local_player and GameState.is_network_active:
+		call_deferred("force_send_network_state")
 
 func _sync_color_row() -> void:
 	var c: Color = GameState.get_local_player_color() if is_local_player else GameState.get_player_color_by_peer(peer_id)
@@ -174,6 +236,7 @@ func _physics_process(delta: float) -> void:
 
 	if GameState.is_network_active:
 		_net_send_timer += delta
+		_net_idle_timer += delta
 		var sig: String = "%d|%.1f|%.1f|%d|%s|%.2f" % [
 			_current_col,
 			global_position.x,
@@ -182,17 +245,8 @@ func _physics_process(delta: float) -> void:
 			str(carried_box != null),
 			sprite.rotation
 		]
-		if sig != _last_sent_sig and (_net_send_timer >= 0.066 or input_dir.length() <= 0.05):
-			_net_send_timer = 0.0
-			_last_sent_sig = sig
-			NetworkClient.send_relay("player_state", {
-				"x": snappedf(global_position.x, 0.1),
-				"y": snappedf(global_position.y, 0.1),
-				"anim_col": _current_col,
-				"flip_h": sprite.flip_h,
-				"rot": snappedf(sprite.rotation, 0.01),
-				"off_y": snappedf(sprite.offset.y, 0.1)
-			})
+		if (sig != _last_sent_sig and (_net_send_timer >= 0.066 or input_dir.length() <= 0.05)) or _net_idle_timer >= 1.0:
+			force_send_network_state()
 
 func _apply_corner_nudge(dir: Vector2, step_len: float) -> void:
 	var perp: Vector2 = Vector2(-dir.y, dir.x)

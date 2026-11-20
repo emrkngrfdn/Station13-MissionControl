@@ -284,15 +284,9 @@ func _make_section_card(header_txt: String, lines: Array[String], border_col: Co
 	return card
 
 func _on_return_lobby_pressed() -> void:
+	return_btn.disabled = true
 	if GameState.is_network_active:
-		if GameState.is_room_host:
-			GameState.setup_mission(GameState.current_mission_idx, GameState.current_modifier_idx, false)
-			NetworkClient.send_return_to_lobby()
-			get_tree().change_scene_to_file("res://scenes/world/waiting_room.tscn")
-		else:
-			GameState.leave_room()
-			GameState.reset_lobby()
-			get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
+		GameState.abort_mission_to_lobby()
 		return
 	GameState.reset_lobby()
-	get_tree().change_scene_to_file("res://scenes/world/waiting_room.tscn")
+	get_tree().call_deferred("change_scene_to_file", "res://scenes/world/waiting_room.tscn")

@@ -352,8 +352,28 @@ func _on_net_return_to_lobby(net_state: Dictionary) -> void:
 	_apply_lobby_state_dict(net_state)
 	setup_mission(current_mission_idx, current_modifier_idx, false)
 	EventBus.room_returned_to_lobby.emit()
-	if ResourceLoader.exists("res://scenes/world/waiting_room.tscn"):
-		get_tree().change_scene_to_file("res://scenes/world/waiting_room.tscn")
+	if is_inside_tree() and ResourceLoader.exists("res://scenes/world/waiting_room.tscn"):
+		get_tree().call_deferred("change_scene_to_file", "res://scenes/world/waiting_room.tscn")
+
+func abort_mission_to_lobby() -> void:
+	is_mission_active = false
+	if is_network_active:
+		if is_room_host:
+			setup_mission(current_mission_idx, current_modifier_idx, false)
+			NetworkClient.send_return_to_lobby()
+			_broadcast_lobby_state()
+			EventBus.room_returned_to_lobby.emit()
+			if is_inside_tree() and ResourceLoader.exists("res://scenes/world/waiting_room.tscn"):
+				get_tree().call_deferred("change_scene_to_file", "res://scenes/world/waiting_room.tscn")
+		else:
+			leave_room()
+			reset_lobby()
+			if is_inside_tree():
+				get_tree().call_deferred("change_scene_to_file", "res://scenes/ui/main_menu.tscn")
+		return
+	setup_mission(current_mission_idx, current_modifier_idx, false)
+	if is_inside_tree() and ResourceLoader.exists("res://scenes/world/waiting_room.tscn"):
+		get_tree().call_deferred("change_scene_to_file", "res://scenes/world/waiting_room.tscn")
 
 func _on_net_room_closed(reason: String) -> void:
 	last_join_error = reason
@@ -490,6 +510,13 @@ func setup_mission(mission_idx: int, modifier_idx: int, broadcast: bool = true) 
 	dsn_locked = false
 	briefing_completed = false
 	power_wiring_broken = false
+	elapsed_time_sec = 0.0
+	downloaded_data_gb = 0.0
+	active_crisis_id = ""
+	crisis_votes.clear()
+	last_crisis_vote_result.clear()
+	last_quest_landing_delta = 0
+	last_quest_is_negative = false
 	recalculate()
 	if broadcast and is_network_active and is_room_host:
 		_broadcast_lobby_state()
@@ -1032,6 +1059,8 @@ func _on_net_relay(event_name: String, data: Dictionary, from_peer_id: int) -> v
 	match event_name:
 		"player_state":
 			EventBus.remote_player_updated.emit(from_peer_id, data)
+		"request_states":
+			EventBus.network_states_requested.emit(String(data.get("scene", "")))
 		"buy_part":
 			var part_id: String = String(data.get("part_id", ""))
 			var part: Dictionary = _find_by_id(parts_data.get("parts", []), part_id, -1)

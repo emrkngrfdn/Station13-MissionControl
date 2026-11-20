@@ -191,7 +191,7 @@ func create_room(
 	site_id: String
 ) -> void:
 	if not is_server_configured():
-		join_failed.emit("Çevrimiçi sunucu URL'si ayarlanmadı (data/network_config.json). Tek kişilik için Solo butonunu kullanın.")
+		join_failed.emit("Çevrimiçi sunucu URL'si ayarlanmadı (data/network_config.json).")
 		return
 
 	disconnect_from_room()

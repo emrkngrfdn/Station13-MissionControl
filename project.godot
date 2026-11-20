@@ -22,6 +22,7 @@ PlayerProfile="*res://autoloads/PlayerProfile.gd"
 LeaderboardManager="*res://autoloads/LeaderboardManager.gd"
 NetworkClient="*res://autoloads/NetworkClient.gd"
 GameState="*res://autoloads/GameState.gd"
+FullscreenButton="*res://autoloads/FullscreenButton.gd"
 
 [display]
 

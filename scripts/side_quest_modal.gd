@@ -62,6 +62,16 @@ func _ready() -> void:
 	EventBus.mission_started.connect(_reset_quests)
 	EventBus.telemetry_changed.connect(_on_vote_telemetry_updated)
 
+func _exit_tree() -> void:
+	if EventBus.terminal_opened.is_connected(_on_terminal_opened):
+		EventBus.terminal_opened.disconnect(_on_terminal_opened)
+	if EventBus.side_quest_triggered.is_connected(_on_random_crisis_triggered):
+		EventBus.side_quest_triggered.disconnect(_on_random_crisis_triggered)
+	if EventBus.mission_started.is_connected(_reset_quests):
+		EventBus.mission_started.disconnect(_reset_quests)
+	if EventBus.telemetry_changed.is_connected(_on_vote_telemetry_updated):
+		EventBus.telemetry_changed.disconnect(_on_vote_telemetry_updated)
+
 func _set_frame_accent(mode: String) -> void:
 	StationFrameDrawer.apply_modal_style(self, mode)
 

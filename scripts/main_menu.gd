@@ -18,7 +18,7 @@ func _ready() -> void:
 
 	var solo_btn: Button = get_node_or_null("CenterBox/MenuPanel/VBox/SoloBtn") as Button
 	if solo_btn != null:
-		solo_btn.visible = true
+		solo_btn.visible = false
 
 	NetworkClient.public_rooms_fetched.connect(_on_public_rooms_fetched)
 	NetworkClient.room_created.connect(_on_net_room_created)
@@ -32,7 +32,7 @@ func _ready() -> void:
 		status_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.4))
 		GameState.last_join_error = ""
 	elif not NetworkClient.is_server_configured():
-		status_label.text = "Çevrimiçi sunucu henüz ayarlı değil — Solo oynayabilirsiniz."
+		status_label.text = "Çevrimiçi sunucu henüz ayarlı değil."
 		status_label.add_theme_color_override("font_color", Color(1.0, 0.82, 0.38))
 
 func _exit_tree() -> void:
@@ -293,10 +293,3 @@ func _on_net_join_failed(error_msg: String) -> void:
 	_set_connecting_state(false, error_msg, Color(1.0, 0.4, 0.35))
 	if _browser_modal != null and _browser_modal.visible:
 		_refresh_public_rooms()
-
-func _on_solo_quick_pressed() -> void:
-	if _is_connecting:
-		return
-	_apply_nickname()
-	GameState.create_offline_solo_room()
-	get_tree().change_scene_to_file("res://scenes/world/waiting_room.tscn")
