@@ -70,3 +70,11 @@ station-13-mission-control/
 1. [Godot Engine 4.7+](https://godotengine.org/) sürümünü indirin.
 2. Godot Project Manager üzerinden **Import** diyerek `station-13-mission-control/project.godot` dosyasını seçin.
 3. `F5` tuşuna basarak oyunu başlatın (ana sahne: `res://scenes/ui/main_menu.tscn`).
+
+---
+
+## Lisans ve Telif Hakkı
+
+**Copyright © 2026 Emirkan Gürfidan (`emrkngrfdn`). Tüm Hakları Saklıdır (All Rights Reserved).**
+
+Bu projedeki tüm kaynak kodlar, sahneler, sunucu dosyaları ve piksel-art görsel varlıklar telif hakkı ile korunmaktadır. Yazılı izin olmaksızın kopyalanamaz, değiştirilemez, yeniden dağıtılamaz veya başka bir yerde yayınlanamaz. Ayrıntılar için [LICENSE](LICENSE) dosyasına bakın.
