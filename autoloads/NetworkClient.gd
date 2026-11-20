@@ -1,7 +1,7 @@
 extends Node
 
 const CONFIG_PATH: String = "res://data/network_config.json"
-const FALLBACK_SERVER_URL: String = "https://station13-multiplayer.station13.workers.dev"
+const FALLBACK_SERVER_URL: String = "https://station13-multiplayer.onrender.com"
 const CONNECT_TIMEOUT_SEC: float = 45.0
 const PING_INTERVAL_SEC: float = 15.0
 
