@@ -66,7 +66,9 @@ var _cart: Array[Dictionary] = []
 var _category_bar: HBoxContainer = null
 var _category_buttons: Dictionary = {}
 var _body_hbox: HBoxContainer = null
+var _parts_scroll: ScrollContainer = null
 var _cart_panel: PanelContainer = null
+var _cart_scroll: ScrollContainer = null
 var _cart_list: VBoxContainer = null
 var _cart_total_label: Label = null
 var _cart_remaining_label: Label = null
@@ -76,6 +78,13 @@ var _clear_cart_btn: Button = null
 var _comm_label: Label = null
 var _mass_badge: Label = null
 var _purchased_strip: Label = null
+
+var _drag_scroll: ScrollContainer = null
+var _drag_start_y: float = 0.0
+var _drag_last_y: float = 0.0
+var _drag_moved: bool = false
+var _touch_index: int = -1
+var _suppress_click: bool = false
 
 func _ready() -> void:
 	visible = false
@@ -207,10 +216,14 @@ func _build_retro_layout() -> void:
 	vbox.move_child(_body_hbox, scroll_idx)
 
 	if scroll_node != null:
+		_parts_scroll = scroll_node
 		scroll_node.reparent(_body_hbox)
 		scroll_node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		scroll_node.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		scroll_node.size_flags_stretch_ratio = 2.05
+		scroll_node.mouse_filter = Control.MOUSE_FILTER_PASS
+		if parts_grid != null:
+			parts_grid.mouse_filter = Control.MOUSE_FILTER_PASS
 
 	_build_cart_sidebar()
 	_body_hbox.add_child(_cart_panel)
@@ -269,15 +282,17 @@ func _build_cart_sidebar() -> void:
 	c_sub.add_theme_color_override("font_color", Color(0.55, 0.68, 0.78))
 	c_vbox.add_child(c_sub)
 
-	var c_scroll: ScrollContainer = ScrollContainer.new()
-	c_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	c_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	c_vbox.add_child(c_scroll)
+	_cart_scroll = ScrollContainer.new()
+	_cart_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_cart_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_cart_scroll.mouse_filter = Control.MOUSE_FILTER_PASS
+	c_vbox.add_child(_cart_scroll)
 
 	_cart_list = VBoxContainer.new()
 	_cart_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_cart_list.mouse_filter = Control.MOUSE_FILTER_PASS
 	_cart_list.add_theme_constant_override("separation", 3)
-	c_scroll.add_child(_cart_list)
+	_cart_scroll.add_child(_cart_list)
 
 	var totals_box: VBoxContainer = VBoxContainer.new()
 	totals_box.add_theme_constant_override("separation", 1)
@@ -300,6 +315,7 @@ func _build_cart_sidebar() -> void:
 
 	# Sarı-Siyah Uyarı Şeritli "SATIN AL & BANDA GÖNDER" Çerçevesi
 	var hazard_wrap: PanelContainer = PanelContainer.new()
+	hazard_wrap.clip_contents = true
 	var hw_sb: StyleBoxFlat = StyleBoxFlat.new()
 	hw_sb.bg_color = Color(0.08, 0.11, 0.13, 1.0)
 	hw_sb.border_width_left = 2
@@ -603,6 +619,8 @@ func _populate_parts() -> void:
 
 		# Retro Donanım Çerçevesi
 		var bezel: PanelContainer = PanelContainer.new()
+		bezel.clip_contents = true
+		bezel.mouse_filter = Control.MOUSE_FILTER_PASS
 		bezel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		bezel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		var bezel_sb: StyleBoxFlat = StyleBoxFlat.new()
@@ -626,6 +644,7 @@ func _populate_parts() -> void:
 
 		# İç Koyu Ekran
 		var screen: PanelContainer = PanelContainer.new()
+		screen.mouse_filter = Control.MOUSE_FILTER_PASS
 		screen.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		screen.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		var scr_sb: StyleBoxFlat = StyleBoxFlat.new()
@@ -674,6 +693,7 @@ func _populate_parts() -> void:
 		vbox.add_child(mid_hbox)
 
 		var icon_frame: PanelContainer = PanelContainer.new()
+		icon_frame.mouse_filter = Control.MOUSE_FILTER_PASS
 		icon_frame.custom_minimum_size = Vector2(46, 46)
 		var if_sb: StyleBoxFlat = StyleBoxFlat.new()
 		if_sb.bg_color = Color(0.03, 0.07, 0.11, 0.95)
@@ -767,6 +787,8 @@ func _populate_parts() -> void:
 		parts_grid.add_child(bezel)
 
 func _on_add_to_cart_pressed(part: Dictionary) -> void:
+	if _suppress_click:
+		return
 	var cost: float = float(part.get("cost_m", 0.0))
 	var p_name: String = String(part.get("name", "Ekipman"))
 	var projected_total: float = _get_cart_total_cost() + cost
@@ -801,6 +823,7 @@ func _refresh_cart() -> void:
 		for idx in range(_cart.size()):
 			var item: Dictionary = _cart[idx]
 			var row_panel: PanelContainer = PanelContainer.new()
+			row_panel.mouse_filter = Control.MOUSE_FILTER_PASS
 			var r_sb: StyleBoxFlat = StyleBoxFlat.new()
 			r_sb.bg_color = Color(0.08, 0.15, 0.21, 0.96)
 			r_sb.border_width_left = 1
@@ -877,6 +900,8 @@ func _refresh_cart() -> void:
 		_clear_cart_btn.visible = not _cart.is_empty()
 
 func _on_remove_cart_item(idx: int) -> void:
+	if _suppress_click:
+		return
 	if idx >= 0 and idx < _cart.size():
 		_cart.remove_at(idx)
 		_populate_parts()
@@ -932,4 +957,85 @@ func _on_rocket_selected(idx: int) -> void:
 			]
 
 func _on_close_pressed() -> void:
+	_drag_scroll = null
+	_touch_index = -1
+	_drag_moved = false
+	_suppress_click = false
 	visible = false
+
+func _find_scroll_at(global_pos: Vector2) -> ScrollContainer:
+	if _parts_scroll != null and _parts_scroll.visible and _parts_scroll.get_global_rect().has_point(global_pos):
+		return _parts_scroll
+	if _cart_scroll != null and _cart_scroll.visible and _cart_scroll.get_global_rect().has_point(global_pos):
+		return _cart_scroll
+	return null
+
+func _clear_suppress_click() -> void:
+	_suppress_click = false
+
+func _input(event: InputEvent) -> void:
+	if not visible:
+		return
+
+	if event is InputEventScreenTouch:
+		var st: InputEventScreenTouch = event as InputEventScreenTouch
+		if st.pressed:
+			var target_s: ScrollContainer = _find_scroll_at(st.position)
+			if target_s != null:
+				_drag_scroll = target_s
+				_touch_index = st.index
+				_drag_start_y = st.position.y
+				_drag_last_y = st.position.y
+				_drag_moved = false
+		elif st.index == _touch_index:
+			if _drag_moved:
+				_suppress_click = true
+				call_deferred("_clear_suppress_click")
+				get_viewport().set_input_as_handled()
+			_drag_scroll = null
+			_touch_index = -1
+			_drag_moved = false
+		return
+
+	if event is InputEventScreenDrag:
+		var sd: InputEventScreenDrag = event as InputEventScreenDrag
+		if _drag_scroll != null and sd.index == _touch_index:
+			var dy: float = sd.position.y - _drag_last_y
+			_drag_last_y = sd.position.y
+			if absf(sd.position.y - _drag_start_y) > 8.0:
+				_drag_moved = true
+			if _drag_moved:
+				_drag_scroll.scroll_vertical = maxi(0, _drag_scroll.scroll_vertical - int(round(dy)))
+				get_viewport().set_input_as_handled()
+		return
+
+	if _touch_index != -1:
+		return
+
+	if event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			if mb.pressed:
+				var target_s: ScrollContainer = _find_scroll_at(mb.position)
+				if target_s != null:
+					_drag_scroll = target_s
+					_drag_start_y = mb.position.y
+					_drag_last_y = mb.position.y
+					_drag_moved = false
+			else:
+				if _drag_moved:
+					_suppress_click = true
+					call_deferred("_clear_suppress_click")
+					get_viewport().set_input_as_handled()
+				_drag_scroll = null
+				_drag_moved = false
+	elif event is InputEventMouseMotion:
+		var mm: InputEventMouseMotion = event as InputEventMouseMotion
+		if _drag_scroll != null and (mm.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
+			var dy: float = mm.position.y - _drag_last_y
+			_drag_last_y = mm.position.y
+			if absf(mm.position.y - _drag_start_y) > 8.0:
+				_drag_moved = true
+			if _drag_moved:
+				_drag_scroll.scroll_vertical = maxi(0, _drag_scroll.scroll_vertical - int(round(dy)))
+				get_viewport().set_input_as_handled()
