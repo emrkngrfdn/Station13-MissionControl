@@ -3,6 +3,7 @@
 **Station 13: Mission Control**, **NASA Space Apps Challenge** için **Godot 4.7** ile geliştirilmiş 2D piksel-art uzay görevi tasarım ve mühendislik simülasyon oyunudur. Oyuncular (1–4 kişilik co-op / solo lobi) gerçek NASA görev kısıtları altında bütçe, kütle, güç, termal koruma ve Deep Space Network (DSN) veri indirme hedeflerini yöneterek uyduyu monte eder ve fırlatır.
 
 > **Tarayıcıda Oyna (GitHub Pages):** https://emrkngrfdn.github.io/Station13-MissionControl/
+![Banner](docs/screenshots/Station13_banner.jpg)
 
 ---
 
