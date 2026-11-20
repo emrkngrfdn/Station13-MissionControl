@@ -255,11 +255,12 @@ func _on_add_player_pressed() -> void:
 		add_player_input.text = ""
 
 func _on_host_room_pressed() -> void:
-	GameState.host_room(GameState.DEFAULT_PORT)
+	GameState.create_offline_solo_room()
 
 func _on_join_room_pressed() -> void:
-	var ip: String = _ip_input.text if _ip_input != null else "127.0.0.1"
-	GameState.join_room(ip)
+	var code: String = _ip_input.text if _ip_input != null else ""
+	if code.strip_edges() != "":
+		NetworkClient.join_room(code, PlayerProfile.full_tag)
 
 func _on_network_status_changed(status_text: String, is_online: bool) -> void:
 	if _net_status_label != null:

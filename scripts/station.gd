@@ -2,6 +2,7 @@ extends Node2D
 
 const StationFrameDrawer = preload("res://scripts/StationFrameDrawer.gd")
 const CARGO_BOX_SCENE: PackedScene = preload("res://scenes/entities/cargo_box.tscn")
+const PLAYER_SCENE: PackedScene = preload("res://scenes/entities/player.tscn")
 
 @onready var budget_label: Label = %BudgetLabel
 @onready var mass_label: Label = %MassLabel
@@ -13,17 +14,104 @@ const CARGO_BOX_SCENE: PackedScene = preload("res://scenes/entities/cargo_box.ts
 @onready var conveyor_spawn: Marker2D = $ConveyorSpawnPoint
 @onready var player: CharacterBody2D = $Player
 
+var _remote_players: Dictionary = {}
+var _boxes_by_id: Dictionary = {}
+
 func _ready() -> void:
 	_style_status_banner()
 	EventBus.telemetry_changed.connect(_update_hud)
 	EventBus.cargo_spawned.connect(_on_cargo_spawned)
 	EventBus.terminal_opened.connect(_on_terminal_opened)
 	EventBus.side_quest_resolved.connect(_on_side_quest_resolved)
+	EventBus.remote_player_updated.connect(_on_remote_player_updated)
+	EventBus.remote_player_left.connect(_on_remote_player_left)
+	EventBus.box_picked_up.connect(_on_box_picked_up)
+	EventBus.box_dropped.connect(_on_box_dropped)
+	EventBus.box_installed.connect(_on_box_installed)
 	if EventBus.has_signal("status_message"):
 		EventBus.status_message.connect(_on_status_message)
+	_spawn_remote_players()
 	_update_hud()
 	_show_status("Görev: %s — Terminallerle etkileşim için [E] veya Etkileşim butonunu kullan." % String(GameState.current_mission.get("name", "")))
 	_show_mission_intro_modal()
+
+func _spawn_remote_players() -> void:
+	if not GameState.is_network_active:
+		return
+	var offset_idx: int = 0
+	for p in GameState.lobby_players:
+		var pid: int = int(p.get("peer_id", 0))
+		if pid <= 0 or pid == GameState.my_peer_id:
+			continue
+		if _remote_players.has(pid) and is_instance_valid(_remote_players[pid]):
+			continue
+		var rp: CharacterBody2D = PLAYER_SCENE.instantiate() as CharacterBody2D
+		var spawn_pos: Vector2 = player.global_position + Vector2((offset_idx + 1) * 18.0, 0.0)
+		rp.set("is_local_player", false)
+		rp.set("peer_id", pid)
+		rp.set("player_tag", String(p.get("tag", "Mürettebat")))
+		add_child(rp)
+		rp.call("setup_remote", pid, String(p.get("tag", "Mürettebat")), spawn_pos)
+		_remote_players[pid] = rp
+		offset_idx += 1
+
+func _on_remote_player_updated(peer_id: int, state: Dictionary) -> void:
+	if not _remote_players.has(peer_id) or not is_instance_valid(_remote_players[peer_id]):
+		_spawn_remote_players()
+	if _remote_players.has(peer_id) and is_instance_valid(_remote_players[peer_id]):
+		_remote_players[peer_id].call("apply_remote_state", state)
+
+func _on_remote_player_left(peer_id: int) -> void:
+	if _remote_players.has(peer_id):
+		var rp: Node = _remote_players[peer_id]
+		if is_instance_valid(rp):
+			if rp.get("carried_box") != null and is_instance_valid(rp.get("carried_box")):
+				var dropped_box: Node2D = rp.get("carried_box")
+				dropped_box.reparent(self)
+				dropped_box.global_position = rp.global_position + Vector2(0, 16)
+				dropped_box.set("carrier", null)
+			rp.queue_free()
+		_remote_players.erase(peer_id)
+
+func _on_box_picked_up(box_id: String, peer_id: int) -> void:
+	if not _boxes_by_id.has(box_id):
+		return
+	var box: Node2D = _boxes_by_id[box_id]
+	if not is_instance_valid(box):
+		_boxes_by_id.erase(box_id)
+		return
+	var target_p: Node2D = player if peer_id == GameState.my_peer_id else _remote_players.get(peer_id, null)
+	if target_p == null or not is_instance_valid(target_p):
+		return
+	box.set("carrier", target_p)
+	target_p.set("carried_box", box)
+	box.reparent(target_p)
+	box.position = Vector2(0, -18)
+
+func _on_box_dropped(box_id: String, pos: Vector2) -> void:
+	if not _boxes_by_id.has(box_id):
+		return
+	var box: Node2D = _boxes_by_id[box_id]
+	if not is_instance_valid(box):
+		_boxes_by_id.erase(box_id)
+		return
+	var prev_carrier: Variant = box.get("carrier")
+	if prev_carrier is Node and is_instance_valid(prev_carrier):
+		(prev_carrier as Node).set("carried_box", null)
+	box.reparent(self)
+	box.global_position = pos
+	box.set("carrier", null)
+
+func _on_box_installed(box_id: String) -> void:
+	if not _boxes_by_id.has(box_id):
+		return
+	var box: Node2D = _boxes_by_id[box_id]
+	if is_instance_valid(box):
+		var prev_carrier: Variant = box.get("carrier")
+		if prev_carrier is Node and is_instance_valid(prev_carrier):
+			(prev_carrier as Node).set("carried_box", null)
+		box.queue_free()
+	_boxes_by_id.erase(box_id)
 
 func _style_status_banner() -> void:
 	var top_bar: PanelContainer = get_node_or_null("HUD/TopBar") as PanelContainer
@@ -89,10 +177,16 @@ func _update_hud() -> void:
 
 func _on_cargo_spawned(part_data: Dictionary) -> void:
 	var box: Node2D = CARGO_BOX_SCENE.instantiate()
-	var jitter: Vector2 = Vector2(randf_range(-10, 10), randf_range(-10, 10))
+	var jitter: Vector2 = Vector2(
+		float(part_data.get("_jx", randf_range(-10.0, 10.0))),
+		float(part_data.get("_jy", randf_range(-10.0, 10.0)))
+	)
 	box.global_position = conveyor_spawn.global_position + jitter
 	add_child(box)
 	box.setup(part_data)
+	var bid: String = String(part_data.get("_box_id", ""))
+	if bid != "":
+		_boxes_by_id[bid] = box
 	_show_status("KARGO GELDİ: %s — Alıp Montaj Hangarı'na götür!" % String(part_data.get("name", "Parça")), false)
 
 func _on_side_quest_resolved(opt: Dictionary) -> void:
@@ -112,7 +206,7 @@ func _on_terminal_opened(terminal_name: String) -> void:
 		if GameState.power_wiring_broken:
 			_show_status("FIRLATMA ENGELLENDİ: Güç Laboratuvarı'nda kopan kabloları düzeltmeden fırlatma yapılamaz!", true)
 			return
-		get_tree().change_scene_to_file("res://scenes/world/landing_sim.tscn")
+		GameState.trigger_launch_sequence()
 
 func _on_interact_btn_pressed() -> void:
 	if player and player.has_method("try_interact"):

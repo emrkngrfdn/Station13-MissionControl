@@ -6,6 +6,8 @@ const COL_CENTER_X: Array[float] = [32.0, 28.0, 24.0, 18.0, 16.0]
 
 @export var base_speed: float = 120.0
 @export var is_local_player: bool = true
+@export var peer_id: int = 0
+@export var player_tag: String = ""
 
 var interactable_target: Node = null
 var carried_box: Node2D = null
@@ -15,6 +17,11 @@ var _row_idx: int = 0
 var _anim_timer: float = 0.0
 var _walk_frame: int = 0
 var _vert_phase: int = 0
+var _current_col: int = 0
+var _net_target_pos: Vector2 = Vector2.ZERO
+var _net_send_timer: float = 0.0
+var _last_sent_sig: String = ""
+var _name_label: Label = null
 
 @onready var sprite: Sprite2D = $Sprite2D
 
@@ -23,6 +30,11 @@ func _ready() -> void:
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 	wall_min_slide_angle = 0.0
 	EventBus.lobby_updated.connect(_on_lobby_updated)
+	if not is_local_player:
+		collision_layer = 0
+		collision_mask = 0
+		_net_target_pos = global_position
+		_ensure_name_label()
 	_sync_color_row()
 	var cam: Camera2D = get_node_or_null("Camera2D") as Camera2D
 	if cam != null:
@@ -30,13 +42,57 @@ func _ready() -> void:
 		if is_local_player:
 			cam.make_current()
 
+func setup_remote(p_peer_id: int, p_tag: String, start_pos: Vector2) -> void:
+	is_local_player = false
+	peer_id = p_peer_id
+	player_tag = p_tag
+	global_position = start_pos
+	_net_target_pos = start_pos
+	collision_layer = 0
+	collision_mask = 0
+	_ensure_name_label()
+	if sprite != null:
+		_sync_color_row()
+	var cam: Camera2D = get_node_or_null("Camera2D") as Camera2D
+	if cam != null:
+		cam.enabled = false
+
+func _ensure_name_label() -> void:
+	if _name_label == null:
+		_name_label = Label.new()
+		_name_label.z_index = 20
+		_name_label.z_as_relative = false
+		_name_label.offset_left = -45.0
+		_name_label.offset_top = -32.0
+		_name_label.offset_right = 45.0
+		_name_label.offset_bottom = -18.0
+		_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_name_label.add_theme_font_size_override("font_size", 8)
+		_name_label.add_theme_color_override("font_color", Color(0.95, 0.98, 1.0))
+		_name_label.add_theme_color_override("font_outline_color", Color(0.03, 0.05, 0.09, 0.95))
+		_name_label.add_theme_constant_override("outline_size", 2)
+		add_child(_name_label)
+	_name_label.text = player_tag
+
+func apply_remote_state(state: Dictionary) -> void:
+	_net_target_pos = Vector2(
+		float(state.get("x", global_position.x)),
+		float(state.get("y", global_position.y))
+	)
+	if global_position.distance_to(_net_target_pos) > 160.0:
+		global_position = _net_target_pos
+	sprite.flip_h = bool(state.get("flip_h", false))
+	sprite.rotation = float(state.get("rot", 0.0))
+	sprite.offset.y = float(state.get("off_y", 0.0))
+	_update_sprite_frame(clampi(int(state.get("anim_col", 0)), 0, 4))
+
 func _on_lobby_updated(_players: Array) -> void:
 	_sync_color_row()
 
 func _sync_color_row() -> void:
-	var c: Color = GameState.get_local_player_color()
+	var c: Color = GameState.get_local_player_color() if is_local_player else GameState.get_player_color_by_peer(peer_id)
 	_row_idx = _color_to_row(c)
-	_update_sprite_frame(0)
+	_update_sprite_frame(_current_col)
 
 func _color_to_row(c: Color) -> int:
 	if c.b > 0.7 and c.r < 0.5:
@@ -49,6 +105,7 @@ func _color_to_row(c: Color) -> int:
 
 func _physics_process(delta: float) -> void:
 	if not is_local_player:
+		global_position = global_position.lerp(_net_target_pos, minf(1.0, delta * 18.0))
 		return
 	var kb_dir: Vector2 = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 	var input_dir: Vector2 = (kb_dir + virtual_move_dir).limit_length(1.0)
@@ -115,6 +172,28 @@ func _physics_process(delta: float) -> void:
 		sprite.offset.y = 0.0
 		_update_sprite_frame(0)
 
+	if GameState.is_network_active:
+		_net_send_timer += delta
+		var sig: String = "%d|%.1f|%.1f|%d|%s|%.2f" % [
+			_current_col,
+			global_position.x,
+			global_position.y,
+			1 if sprite.flip_h else 0,
+			str(carried_box != null),
+			sprite.rotation
+		]
+		if sig != _last_sent_sig and (_net_send_timer >= 0.066 or input_dir.length() <= 0.05):
+			_net_send_timer = 0.0
+			_last_sent_sig = sig
+			NetworkClient.send_relay("player_state", {
+				"x": snappedf(global_position.x, 0.1),
+				"y": snappedf(global_position.y, 0.1),
+				"anim_col": _current_col,
+				"flip_h": sprite.flip_h,
+				"rot": snappedf(sprite.rotation, 0.01),
+				"off_y": snappedf(sprite.offset.y, 0.1)
+			})
+
 func _apply_corner_nudge(dir: Vector2, step_len: float) -> void:
 	var perp: Vector2 = Vector2(-dir.y, dir.x)
 	var probe: Vector2 = dir * maxf(step_len, 2.5)
@@ -134,6 +213,9 @@ func _apply_corner_nudge(dir: Vector2, step_len: float) -> void:
 			return
 
 func _update_sprite_frame(col: int) -> void:
+	_current_col = col
+	if sprite == null:
+		return
 	var y_pos: float = floor(_row_idx * CELL_H)
 	sprite.region_rect = Rect2(col * CELL_W, y_pos, CELL_W, 46.0)
 	var cx: float = COL_CENTER_X[col]
@@ -221,3 +303,11 @@ func drop_carried_box(target_pos: Vector2 = Vector2.INF) -> void:
 	carried_box = null
 	var box_name: String = String(box.get("part_data").get("name", "Kargo")) if box.get("part_data") is Dictionary else "Kargo"
 	EventBus.status_message.emit("YERE BIRAKILDI: %s" % box_name, false)
+	if is_local_player and GameState.is_network_active:
+		var bid: String = String(box.get("box_id"))
+		if bid != "":
+			NetworkClient.send_relay("box_drop", {
+				"box_id": bid,
+				"x": box.global_position.x,
+				"y": box.global_position.y
+			})

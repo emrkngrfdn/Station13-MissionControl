@@ -4,8 +4,6 @@ const MissionValidator = preload("res://scripts/MissionValidator.gd")
 
 const DEFAULT_PORT: int = 7777
 const MAX_PLAYERS: int = 4
-const ACTIVE_ROOMS_PATH: String = "user://active_rooms.json"
-const ROOM_HEARTBEAT_TIMEOUT_SEC: float = 6.0
 const CRISIS_MIN_INTERVAL_SEC: float = 95.0
 const CRISIS_MAX_INTERVAL_SEC: float = 135.0
 const MAX_RANDOM_CRISES_PER_MISSION: int = 2
@@ -32,7 +30,8 @@ var last_join_error: String = ""
 var lobby_players: Array = [] # [{ "tag": "Commander#1042", "color": Color.CORAL, "is_host": true, "peer_id": 1 }]
 var is_solo: bool = true
 var is_network_active: bool = false
-var _room_heartbeat_timer: float = 0.0
+var my_peer_id: int = 1
+var _cargo_seq: int = 0
 
 # Aktif Görev & Dinamik Ekonomi
 var current_mission: Dictionary = {}
@@ -101,15 +100,6 @@ func _notification(what: int) -> void:
 		leave_room()
 
 func _process(delta: float) -> void:
-	if is_room_open:
-		_room_heartbeat_timer += delta
-		if _room_heartbeat_timer >= 1.5:
-			_room_heartbeat_timer = 0.0
-			if is_room_host:
-				_save_active_room_entry()
-			else:
-				_poll_active_room_as_client()
-
 	if not is_mission_active:
 		return
 	elapsed_time_sec += delta
@@ -157,126 +147,31 @@ func _normalize_tag(raw_tag: String) -> String:
 	return "%s#%d" % [cleaned, randi_range(1000, 9999)]
 
 # ============================================================================
-# 4 KİŞİLİK LOBİ & MULTIPLAYER ODA / SENKRONİZASYON ALTYAPISI
+# 4 KİŞİLİK LOBİ & MULTIPLAYER ODA / SENKRONİZASYON ALTYAPISI (WebSocket)
 # ============================================================================
 
 func _setup_multiplayer_signals() -> void:
-	multiplayer.peer_connected.connect(_on_peer_connected)
-	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
-	multiplayer.connected_to_server.connect(_on_connected_to_server)
-	multiplayer.connection_failed.connect(_on_connection_failed)
-	multiplayer.server_disconnected.connect(_on_server_disconnected)
-
-func _load_active_rooms() -> Dictionary:
-	if not FileAccess.file_exists(ACTIVE_ROOMS_PATH):
-		return {}
-	var file: FileAccess = FileAccess.open(ACTIVE_ROOMS_PATH, FileAccess.READ)
-	if not file:
-		return {}
-	var parsed: Variant = JSON.parse_string(file.get_as_text())
-	if not (parsed is Dictionary):
-		return {}
-	var raw_rooms: Dictionary = parsed
-	var now: float = Time.get_unix_time_from_system()
-	var valid_rooms: Dictionary = {}
-	var changed: bool = false
-	for key in raw_rooms.keys():
-		var r: Variant = raw_rooms[key]
-		if r is Dictionary:
-			var updated_at: float = float((r as Dictionary).get("updated_at", 0.0))
-			if now - updated_at <= ROOM_HEARTBEAT_TIMEOUT_SEC:
-				valid_rooms[String(key)] = r
-			else:
-				changed = true
-	if changed:
-		_write_active_rooms(valid_rooms)
-	return valid_rooms
-
-func _write_active_rooms(rooms: Dictionary) -> void:
-	var file: FileAccess = FileAccess.open(ACTIVE_ROOMS_PATH, FileAccess.WRITE)
-	if file:
-		file.store_string(JSON.stringify(rooms))
-
-func _serialize_players(players: Array) -> Array:
-	var out: Array = []
-	for i in range(players.size()):
-		var p: Dictionary = players[i]
-		out.append({
-			"tag": String(p.get("tag", "")),
-			"color_idx": i % SLOT_COLORS.size(),
-			"is_host": bool(p.get("is_host", false)),
-			"role": String(p.get("role", "Mürettebat")),
-			"peer_id": int(p.get("peer_id", 0))
-		})
-	return out
+	NetworkClient.lobby_state_received.connect(_on_net_lobby_state)
+	NetworkClient.mission_started_received.connect(_on_net_mission_started)
+	NetworkClient.return_to_lobby_received.connect(_on_net_return_to_lobby)
+	NetworkClient.room_closed_received.connect(_on_net_room_closed)
+	NetworkClient.peer_left_received.connect(_on_net_peer_left)
+	NetworkClient.relay_received.connect(_on_net_relay)
 
 func _deserialize_players(raw_players: Array) -> Array:
 	var out: Array = []
 	for i in range(raw_players.size()):
 		var p: Dictionary = raw_players[i]
-		var c_idx: int = int(p.get("color_idx", i)) % SLOT_COLORS.size()
+		var c_idx: int = clampi(int(p.get("color_idx", i)), 0, SLOT_COLORS.size() - 1)
 		out.append({
 			"tag": String(p.get("tag", "")),
 			"color": SLOT_COLORS[c_idx],
+			"color_idx": c_idx,
 			"is_host": bool(p.get("is_host", i == 0)),
 			"role": String(p.get("role", "Mürettebat")),
 			"peer_id": int(p.get("peer_id", 0))
 		})
 	return out
-
-func _save_active_room_entry() -> void:
-	if not is_room_open or room_code == "":
-		return
-	var rooms: Dictionary = _load_active_rooms()
-	if is_room_host and rooms.has(room_code):
-		var existing: Dictionary = rooms[room_code]
-		var remote_raw: Array = existing.get("players", [])
-		if remote_raw.size() > lobby_players.size():
-			lobby_players = _deserialize_players(remote_raw)
-			is_solo = lobby_players.size() == 1
-			EventBus.lobby_updated.emit(lobby_players)
-
-	var port_num: int = int(rooms.get(room_code, {}).get("port", DEFAULT_PORT))
-	var host_tag: String = PlayerProfile.full_tag
-	if lobby_players.size() > 0:
-		host_tag = String(lobby_players[0].get("tag", PlayerProfile.full_tag))
-	rooms[room_code] = {
-		"room_code": room_code,
-		"port": port_num,
-		"updated_at": Time.get_unix_time_from_system(),
-		"is_public": is_room_public,
-		"is_mission_active": is_mission_active,
-		"host_name": host_tag,
-		"mission_name": String(current_mission.get("name", "")),
-		"mission_idx": current_mission_idx,
-		"modifier_idx": current_modifier_idx,
-		"rocket_id": String(selected_rocket.get("id", "")),
-		"site_id": String(selected_launch_site.get("id", "")),
-		"players": _serialize_players(lobby_players)
-	}
-	_write_active_rooms(rooms)
-
-func _poll_active_room_as_client() -> void:
-	if not is_room_open or is_room_host or room_code == "":
-		return
-	var rooms: Dictionary = _load_active_rooms()
-	if not rooms.has(room_code):
-		leave_room()
-		return
-	var r: Dictionary = rooms[room_code]
-	is_room_public = bool(r.get("is_public", true))
-	var remote_m: int = int(r.get("mission_idx", current_mission_idx))
-	var remote_mod: int = int(r.get("modifier_idx", current_modifier_idx))
-	var remote_site: String = String(r.get("site_id", ""))
-	if remote_m != current_mission_idx or remote_mod != current_modifier_idx:
-		setup_mission(remote_m, remote_mod)
-	if remote_site != "" and remote_site != String(selected_launch_site.get("id", "")):
-		select_launch_site(remote_site)
-	var synced_players: Array = _deserialize_players(r.get("players", []))
-	if synced_players.size() != lobby_players.size():
-		lobby_players = synced_players
-		is_solo = lobby_players.size() == 1
-		EventBus.lobby_updated.emit(lobby_players)
 
 func _generate_random_room_code() -> String:
 	var letters: String = "ABCDEFGHJKLMNPQRSTUVWXYZ"
@@ -286,138 +181,92 @@ func _generate_random_room_code() -> String:
 	var num: int = randi_range(10, 99)
 	return "%s-%02d" % [p1, num]
 
-func get_public_rooms(filter_text: String = "") -> Array:
-	var rooms: Dictionary = _load_active_rooms()
-	var clean_filter: String = filter_text.strip_edges().to_lower()
-	var out: Array = []
-	for key in rooms.keys():
-		var r: Dictionary = rooms[key]
-		if not bool(r.get("is_public", false)):
-			continue
-		if bool(r.get("is_mission_active", false)):
-			continue
-		if clean_filter != "":
-			var code_l: String = String(r.get("room_code", "")).to_lower()
-			var host_l: String = String(r.get("host_name", "")).to_lower()
-			var mission_l: String = String(r.get("mission_name", "")).to_lower()
-			if not code_l.contains(clean_filter) and not host_l.contains(clean_filter) and not mission_l.contains(clean_filter):
-				continue
-		out.append(r)
-	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return float(a.get("updated_at", 0.0)) > float(b.get("updated_at", 0.0))
+func apply_network_room_state(peer_id: int, new_code: String, net_state: Dictionary, as_host: bool) -> void:
+	my_peer_id = peer_id
+	room_code = new_code
+	is_room_open = true
+	is_room_host = as_host
+	is_network_active = true
+	is_room_public = bool(net_state.get("is_public", false))
+	last_join_error = ""
+	_apply_lobby_state_dict(net_state)
+	EventBus.network_status_changed.emit(
+		"Çevrimiçi Oda: %s (%s)" % [room_code, "Host" if as_host else "Mürettebat"],
+		true
 	)
-	return out
 
-func _remove_active_room_entry(code_to_remove: String) -> void:
-	if code_to_remove == "":
-		return
-	var rooms: Dictionary = _load_active_rooms()
-	if rooms.has(code_to_remove):
-		rooms.erase(code_to_remove)
-		_write_active_rooms(rooms)
+func _apply_lobby_state_dict(net_state: Dictionary) -> void:
+	is_room_public = bool(net_state.get("is_public", is_room_public))
+	var synced_players: Array = _deserialize_players(net_state.get("players", []))
+	if not synced_players.is_empty():
+		lobby_players = synced_players
+		is_solo = lobby_players.size() == 1
+	var m_idx: int = int(net_state.get("mission_idx", current_mission_idx))
+	var mod_idx: int = int(net_state.get("modifier_idx", current_modifier_idx))
+	var r_id: String = String(net_state.get("rocket_id", ""))
+	var s_id: String = String(net_state.get("site_id", ""))
+	if not is_mission_active and (m_idx != current_mission_idx or mod_idx != current_modifier_idx):
+		setup_mission(m_idx, mod_idx, false)
+	if not is_mission_active and r_id != "" and r_id != String(selected_rocket.get("id", "")):
+		select_rocket(r_id, false)
+	if not is_mission_active and s_id != "" and s_id != String(selected_launch_site.get("id", "")):
+		select_launch_site(s_id, false)
+	EventBus.lobby_updated.emit(lobby_players)
+	EventBus.telemetry_changed.emit()
+
+func create_offline_solo_room() -> String:
+	leave_room()
+	reset_lobby()
+	randomize()
+	room_code = "SOLO"
+	is_room_open = true
+	is_room_host = true
+	is_room_public = false
+	is_network_active = false
+	my_peer_id = 1
+	EventBus.network_status_changed.emit("Çevrimdışı Solo Mod", false)
+	EventBus.lobby_updated.emit(lobby_players)
+	return room_code
+
+func create_room(public_room: bool = false) -> String:
+	return create_offline_solo_room() if not NetworkClient.is_server_configured() else ""
 
 func set_room_public(public_room: bool) -> void:
 	if is_room_open and not is_room_host:
 		return
 	is_room_public = public_room
-	if is_room_open:
-		_save_active_room_entry()
+	if is_network_active and is_room_host:
+		_broadcast_lobby_state()
 	EventBus.telemetry_changed.emit()
-
-func create_room(public_room: bool = false) -> String:
-	leave_room()
-	reset_lobby()
-	randomize()
-	var rooms: Dictionary = _load_active_rooms()
-	var candidate: String = _generate_random_room_code()
-	while rooms.has(candidate):
-		candidate = _generate_random_room_code()
-
-	room_code = candidate
-	is_room_open = true
-	is_room_host = true
-	is_room_public = public_room
-	var port: int = 7700 + randi_range(1, 99)
-	host_room(port)
-	_save_active_room_entry()
-	return room_code
-
-func host_room(port: int = DEFAULT_PORT) -> Error:
-	var peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
-	var err: Error = peer.create_server(port, MAX_PLAYERS)
-	if err != OK:
-		EventBus.network_status_changed.emit("Yerel Oda Aktif (%s)" % room_code, false)
-		return err
-	multiplayer.multiplayer_peer = peer
-	is_network_active = true
-	if room_code == "":
-		room_code = _generate_random_room_code()
-	is_room_open = true
-	is_room_host = true
-	if lobby_players.size() > 0:
-		lobby_players[0]["peer_id"] = 1
-	_save_active_room_entry()
-	EventBus.network_status_changed.emit("Host Aktif — %s (Port %d)" % [room_code, port], true)
-	EventBus.lobby_updated.emit(lobby_players)
-	return OK
-
-func join_room(code: String, player_tag: String = "") -> bool:
-	var clean_code: String = code.strip_edges().to_upper()
-	if clean_code == "":
-		last_join_error = "Lütfen geçerli bir Oda Kodu girin (örn: KZM-47)!"
-		return false
-
-	var rooms: Dictionary = _load_active_rooms()
-	if not rooms.has(clean_code):
-		last_join_error = "HATA: '%s' kodlu açık bir oda bulunamadı! Sadece aktif kurulu odalara katılabilirsiniz." % clean_code
-		EventBus.network_status_changed.emit(last_join_error, false)
-		return false
-
-	var room_info: Dictionary = rooms[clean_code]
-	if bool(room_info.get("is_mission_active", false)):
-		last_join_error = "HATA: '%s' odasında görev zaten başlamış!" % clean_code
-		EventBus.network_status_changed.emit(last_join_error, false)
-		return false
-
-	var existing_players: Array = _deserialize_players(room_info.get("players", []))
-	if existing_players.size() >= MAX_PLAYERS:
-		last_join_error = "HATA: '%s' odası tamamen dolu (4/4)!" % clean_code
-		EventBus.network_status_changed.emit(last_join_error, false)
-		return false
-
-	leave_room()
-	room_code = clean_code
-	is_room_open = true
-	is_room_host = false
-	lobby_players = existing_players
-
-	var tag_to_join: String = player_tag.strip_edges() if player_tag.strip_edges() != "" else PlayerProfile.full_tag
-	add_player_to_lobby(tag_to_join)
-
-	room_info["players"] = _serialize_players(lobby_players)
-	rooms[clean_code] = room_info
-	_write_active_rooms(rooms)
-
-	var port: int = int(room_info.get("port", DEFAULT_PORT))
-	var peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
-	var err: Error = peer.create_client("127.0.0.1", port)
-	if err == OK:
-		multiplayer.multiplayer_peer = peer
-		is_network_active = true
-		EventBus.network_status_changed.emit("Odaya Bağlanıldı: %s" % room_code, true)
-	last_join_error = ""
-	return true
 
 func set_host_color(new_color: Color) -> void:
 	set_my_color(new_color)
 
+func _color_to_slot_idx(c: Color) -> int:
+	for i in range(SLOT_COLORS.size()):
+		if SLOT_COLORS[i].is_equal_approx(c):
+			return i
+	if c.b > 0.7 and c.r < 0.5:
+		return 1
+	if c.r > 0.8 and c.g > 0.7:
+		return 2
+	if c.g > 0.7 and c.r < 0.5:
+		return 3
+	return 0
+
 func set_my_color(new_color: Color) -> void:
+	var target_idx: int = _color_to_slot_idx(new_color)
+	if is_network_active:
+		for p in lobby_players:
+			if int(p.get("peer_id", -1)) == my_peer_id:
+				continue
+			var other_c: Color = p.get("color", Color.BLACK)
+			if other_c.is_equal_approx(SLOT_COLORS[target_idx]):
+				return
+		NetworkClient.send_set_color(target_idx)
+		return
+
 	var my_idx: int = 0
-	if is_room_open and not is_room_host:
-		for i in range(lobby_players.size()):
-			if String(lobby_players[i].get("tag", "")) == PlayerProfile.full_tag:
-				my_idx = i
-				break
 	for i in range(lobby_players.size()):
 		if i == my_idx:
 			continue
@@ -426,10 +275,8 @@ func set_my_color(new_color: Color) -> void:
 			return
 	if my_idx >= 0 and my_idx < lobby_players.size():
 		lobby_players[my_idx]["color"] = new_color
-		if is_room_open and is_room_host:
-			_broadcast_lobby_state()
-		else:
-			EventBus.lobby_updated.emit(lobby_players)
+		lobby_players[my_idx]["color_idx"] = target_idx
+		EventBus.lobby_updated.emit(lobby_players)
 
 func _pick_distinct_color(ignore_idx: int = -1) -> Color:
 	for candidate in SLOT_COLORS:
@@ -446,6 +293,10 @@ func _pick_distinct_color(ignore_idx: int = -1) -> Color:
 	return SLOT_COLORS[lobby_players.size() % SLOT_COLORS.size()]
 
 func get_local_player_color() -> Color:
+	if is_network_active:
+		for p in lobby_players:
+			if int(p.get("peer_id", -1)) == my_peer_id:
+				return p.get("color", Color.CORAL)
 	for p in lobby_players:
 		if String(p.get("tag", "")) == PlayerProfile.full_tag:
 			return p.get("color", Color.CORAL)
@@ -453,109 +304,102 @@ func get_local_player_color() -> Color:
 		return lobby_players[0].get("color", Color.CORAL)
 	return Color.CORAL
 
+func get_player_color_by_peer(peer_id: int) -> Color:
+	for p in lobby_players:
+		if int(p.get("peer_id", -1)) == peer_id:
+			return p.get("color", Color.CORAL)
+	return Color.CORAL
+
+func get_player_tag_by_peer(peer_id: int) -> String:
+	for p in lobby_players:
+		if int(p.get("peer_id", -1)) == peer_id:
+			return String(p.get("tag", "Mürettebat"))
+	return "Mürettebat#%d" % peer_id
+
 func leave_room() -> void:
-	if is_room_host and room_code != "":
-		_remove_active_room_entry(room_code)
-	if is_inside_tree() and multiplayer != null and multiplayer.multiplayer_peer != null:
-		multiplayer.multiplayer_peer.close()
-		multiplayer.multiplayer_peer = null
+	if is_network_active or NetworkClient.is_connected_online:
+		NetworkClient.disconnect_from_room()
 	is_network_active = false
 	is_room_open = false
 	is_room_host = false
+	is_room_public = false
+	is_mission_active = false
 	room_code = ""
+	my_peer_id = 1
 	EventBus.network_status_changed.emit("Çevrimdışı / Yerel Lobi Modu", false)
 
-func _on_peer_connected(peer_id: int) -> void:
-	if multiplayer.is_server():
-		EventBus.network_status_changed.emit("Oyuncu bağlandı (Peer #%d)..." % peer_id, true)
+func _on_net_lobby_state(net_state: Dictionary) -> void:
+	_apply_lobby_state_dict(net_state)
 
-func _on_peer_disconnected(peer_id: int) -> void:
-	if multiplayer.is_server():
-		for i in range(lobby_players.size() - 1, 0, -1):
-			if int(lobby_players[i].get("peer_id", -1)) == peer_id:
-				lobby_players.remove_at(i)
-		_reindex_lobby_slots()
-		_broadcast_lobby_state()
-
-func _on_connected_to_server() -> void:
-	EventBus.network_status_changed.emit("Odaya bağlandı! (%s)" % PlayerProfile.full_tag, true)
-	_rpc_register_player.rpc_id(1, PlayerProfile.full_tag)
-
-func _on_connection_failed() -> void:
-	leave_room()
-	EventBus.network_status_changed.emit("Sunucuya bağlanılamadı.", false)
-
-func _on_server_disconnected() -> void:
-	leave_room()
-	reset_lobby()
-	EventBus.network_status_changed.emit("Host bağlantıyı kapattı.", false)
-
-@rpc("any_peer", "reliable")
-func _rpc_register_player(player_tag: String) -> void:
-	if not multiplayer.is_server():
-		return
-	var sender_id: int = multiplayer.get_remote_sender_id()
-	var normalized: String = _normalize_tag(player_tag)
-	for i in range(lobby_players.size()):
-		if String(lobby_players[i].get("tag", "")) == normalized:
-			lobby_players[i]["peer_id"] = sender_id
-			_broadcast_lobby_state()
-			return
-	if lobby_players.size() >= MAX_PLAYERS:
-		return
-	var roles: Array[String] = ["Komutan", "Sistem Müh.", "Yük Uzmanı", "Uçuş Müh."]
-	var idx: int = lobby_players.size()
-	lobby_players.append({
-		"tag": normalized,
-		"color": _pick_distinct_color(),
-		"is_host": false,
-		"role": roles[idx],
-		"peer_id": sender_id
-	})
+func _on_net_mission_started(net_state: Dictionary) -> void:
+	_apply_lobby_state_dict(net_state)
 	is_solo = lobby_players.size() == 1
-	_broadcast_lobby_state()
+	elapsed_time_sec = 0.0
+	downloaded_data_gb = 0.0
+	ssd_used_gb = 12.0
+	briefing_completed = false
+	power_wiring_broken = false
+	_crisis_timer = 0.0
+	_triggered_crisis_ids.clear()
+	_next_crisis_interval = randf_range(CRISIS_MIN_INTERVAL_SEC, CRISIS_MAX_INTERVAL_SEC)
+	is_mission_active = true
+	EventBus.mission_started.emit()
+	if ResourceLoader.exists("res://scenes/world/station.tscn"):
+		get_tree().change_scene_to_file("res://scenes/world/station.tscn")
+
+func _on_net_return_to_lobby(net_state: Dictionary) -> void:
+	is_mission_active = false
+	_apply_lobby_state_dict(net_state)
+	setup_mission(current_mission_idx, current_modifier_idx, false)
+	EventBus.room_returned_to_lobby.emit()
+	if ResourceLoader.exists("res://scenes/world/waiting_room.tscn"):
+		get_tree().change_scene_to_file("res://scenes/world/waiting_room.tscn")
+
+func _on_net_room_closed(reason: String) -> void:
+	last_join_error = reason
+	is_network_active = false
+	is_room_open = false
+	is_room_host = false
+	is_room_public = false
+	is_mission_active = false
+	room_code = ""
+	my_peer_id = 1
+	reset_lobby()
+	EventBus.network_status_changed.emit(reason, false)
+	EventBus.status_message.emit(reason, true)
+	if is_inside_tree() and get_tree().current_scene != null:
+		var scene_path: String = get_tree().current_scene.scene_file_path
+		if scene_path != "res://scenes/ui/main_menu.tscn":
+			get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
+
+func _on_net_peer_left(peer_id: int) -> void:
+	EventBus.remote_player_left.emit(peer_id)
 
 func _broadcast_lobby_state() -> void:
 	EventBus.lobby_updated.emit(lobby_players)
-	if is_room_open and is_room_host:
-		_save_active_room_entry()
-	if is_network_active and multiplayer.is_server():
-		_rpc_sync_lobby_state.rpc(
-			lobby_players,
+	if is_network_active and is_room_host:
+		NetworkClient.send_update_lobby(
+			is_room_public,
 			current_mission_idx,
 			current_modifier_idx,
+			String(current_mission.get("name", "")),
 			String(selected_rocket.get("id", "")),
-			String(selected_launch_site.get("id", ""))
+			String(selected_launch_site.get("id", "")),
+			PlayerProfile.full_tag
 		)
-
-@rpc("authority", "call_remote", "reliable")
-func _rpc_sync_lobby_state(
-	synced_players: Array,
-	mission_idx: int,
-	modifier_idx: int,
-	rocket_id: String,
-	site_id: String
-) -> void:
-	lobby_players = synced_players
-	is_solo = lobby_players.size() == 1
-	setup_mission(mission_idx, modifier_idx, false)
-	if rocket_id != "":
-		select_rocket(rocket_id, false)
-	if site_id != "":
-		select_launch_site(site_id, false)
-	EventBus.lobby_updated.emit(lobby_players)
 
 func reset_lobby() -> void:
 	lobby_players = [{
 		"tag": PlayerProfile.full_tag,
 		"color": SLOT_COLORS[0],
+		"color_idx": 0,
 		"is_host": true,
 		"role": "Komutan",
 		"peer_id": 1
 	}]
 	is_solo = true
 	if missions_data.has("missions") and missions_data["missions"].size() > 0:
-		setup_mission(0, 0)
+		setup_mission(0, 0, false)
 	EventBus.lobby_updated.emit(lobby_players)
 
 func update_host_nickname(new_name: String) -> void:
@@ -573,9 +417,11 @@ func add_player_to_lobby(player_tag: String) -> bool:
 			return false
 	var roles: Array[String] = ["Komutan", "Sistem Müh.", "Yük Uzmanı", "Uçuş Müh."]
 	var idx: int = lobby_players.size()
+	var c: Color = _pick_distinct_color()
 	lobby_players.append({
 		"tag": normalized,
-		"color": _pick_distinct_color(),
+		"color": c,
+		"color_idx": _color_to_slot_idx(c),
 		"is_host": false,
 		"role": roles[idx],
 		"peer_id": 0
@@ -596,6 +442,7 @@ func _reindex_lobby_slots() -> void:
 	var roles: Array[String] = ["Komutan", "Sistem Müh.", "Yük Uzmanı", "Uçuş Müh."]
 	for i in range(lobby_players.size()):
 		lobby_players[i]["color"] = SLOT_COLORS[i]
+		lobby_players[i]["color_idx"] = i
 		lobby_players[i]["role"] = roles[i]
 	is_solo = lobby_players.size() == 1
 
@@ -644,7 +491,7 @@ func setup_mission(mission_idx: int, modifier_idx: int, broadcast: bool = true) 
 	briefing_completed = false
 	power_wiring_broken = false
 	recalculate()
-	if broadcast and is_network_active and multiplayer.is_server():
+	if broadcast and is_network_active and is_room_host:
 		_broadcast_lobby_state()
 
 func _find_by_id(items: Array, target_id: String, fallback_idx: int = 0) -> Dictionary:
@@ -678,15 +525,23 @@ func select_rocket(rocket_id: String, broadcast: bool = true) -> bool:
 	selected_rocket = new_rocket
 	EventBus.rocket_changed.emit(selected_rocket)
 	recalculate()
-	if broadcast and is_network_active and multiplayer.is_server():
-		_broadcast_lobby_state()
+	if broadcast and is_network_active:
+		if is_mission_active:
+			NetworkClient.send_relay("select_rocket", {
+				"rocket_id": rocket_id,
+				"paid_cost": _paid_rocket_cost,
+				"budget_m": budget_m,
+				"log_line": decision_logs[-1] if not decision_logs.is_empty() else ""
+			})
+		elif is_room_host:
+			_broadcast_lobby_state()
 	return true
 
 func select_launch_site(site_id: String, broadcast: bool = true) -> void:
 	selected_launch_site = _find_by_id(missions_data.get("launch_sites", []), site_id, 0)
 	EventBus.launch_site_changed.emit(selected_launch_site)
 	recalculate()
-	if broadcast and is_network_active and multiplayer.is_server():
+	if broadcast and is_network_active and is_room_host:
 		_broadcast_lobby_state()
 
 func get_available_parts_for_mission() -> Array:
@@ -718,6 +573,8 @@ func get_side_quest_for_room(room_name: String) -> Dictionary:
 	return quests[0] if not quests.is_empty() else {}
 
 func _check_and_trigger_random_crisis() -> void:
+	if is_network_active and not is_room_host:
+		return
 	var available: Array = get_available_side_quests_for_mission()
 	var candidates: Array = []
 	for q in available:
@@ -734,6 +591,8 @@ func _check_and_trigger_random_crisis() -> void:
 	_triggered_crisis_ids.append(chosen_id)
 	EventBus.crisis_alert.emit(chosen_id.to_upper())
 	EventBus.side_quest_triggered.emit(chosen)
+	if is_network_active:
+		NetworkClient.send_relay("crisis_trigger", { "quest_id": chosen_id })
 
 func has_installed_tag(tag_name: String) -> bool:
 	var tags: Dictionary = MissionValidator.collect_installed_tags(installed_parts)
@@ -751,24 +610,20 @@ func start_mission() -> void:
 	downloaded_data_gb = 0.0
 	ssd_used_gb = 12.0
 	briefing_completed = false
+	power_wiring_broken = false
 	_crisis_timer = 0.0
 	_triggered_crisis_ids.clear()
 	_next_crisis_interval = randf_range(CRISIS_MIN_INTERVAL_SEC, CRISIS_MAX_INTERVAL_SEC)
 	is_mission_active = true
 	EventBus.mission_started.emit()
-	if is_network_active and multiplayer.is_server():
-		_rpc_start_mission.rpc()
-
-@rpc("authority", "call_remote", "reliable")
-func _rpc_start_mission() -> void:
-	is_solo = lobby_players.size() == 1
-	elapsed_time_sec = 0.0
-	downloaded_data_gb = 0.0
-	ssd_used_gb = 12.0
-	is_mission_active = true
-	EventBus.mission_started.emit()
-	if ResourceLoader.exists("res://scenes/world/station.tscn"):
-		get_tree().change_scene_to_file("res://scenes/world/station.tscn")
+	if is_network_active and is_room_host:
+		NetworkClient.send_start_mission(
+			current_mission_idx,
+			current_modifier_idx,
+			String(current_mission.get("name", "")),
+			String(selected_rocket.get("id", "")),
+			String(selected_launch_site.get("id", ""))
+		)
 
 func buy_part(part: Dictionary) -> bool:
 	var cost: float = float(part.get("cost_m", 0))
@@ -776,22 +631,24 @@ func buy_part(part: Dictionary) -> bool:
 		return false
 	budget_m -= cost
 	purchased_parts.append(part)
-	EventBus.cargo_spawned.emit(part)
+	_cargo_seq += 1
+	var box_id: String = "%d_%d" % [my_peer_id, _cargo_seq]
+	var jx: float = randf_range(-10.0, 10.0)
+	var jy: float = randf_range(-10.0, 10.0)
+	var spawn_payload: Dictionary = part.duplicate(true)
+	spawn_payload["_box_id"] = box_id
+	spawn_payload["_jx"] = jx
+	spawn_payload["_jy"] = jy
+	EventBus.cargo_spawned.emit(spawn_payload)
 	EventBus.telemetry_changed.emit()
 	if is_network_active:
-		_rpc_sync_buy_part.rpc(String(part.get("id", "")))
+		NetworkClient.send_relay("buy_part", {
+			"part_id": String(part.get("id", "")),
+			"box_id": box_id,
+			"jx": jx,
+			"jy": jy
+		})
 	return true
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_sync_buy_part(part_id: String) -> void:
-	var part: Dictionary = _find_by_id(parts_data.get("parts", []), part_id, -1)
-	if not part.is_empty():
-		var cost: float = float(part.get("cost_m", 0))
-		if budget_m >= cost:
-			budget_m -= cost
-			purchased_parts.append(part)
-			EventBus.cargo_spawned.emit(part)
-			EventBus.telemetry_changed.emit()
 
 func is_part_installed(part_id: String) -> bool:
 	if part_id == "":
@@ -822,7 +679,7 @@ func get_purchased_summary() -> Array:
 		summary.append(counts[pid])
 	return summary
 
-func install_part(part: Dictionary) -> bool:
+func install_part(part: Dictionary, box_id: String = "") -> bool:
 	var pid: String = String(part.get("id", ""))
 	if is_part_installed(pid):
 		EventBus.status_message.emit("ZATEN MONTE EDİLDİ: %s roket üzerinde zaten takılı!" % String(part.get("name", "Ekipman")), true)
@@ -834,15 +691,23 @@ func install_part(part: Dictionary) -> bool:
 	recalculate()
 	EventBus.status_message.emit("MONTE EDİLDİ: %s başarıyla takıldı!" % String(part.get("name", "Ekipman")), false)
 	if is_network_active:
-		_rpc_sync_install_part.rpc(pid)
+		NetworkClient.send_relay("install_part", {
+			"part_id": pid,
+			"box_id": box_id
+		})
 	return true
 
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_sync_install_part(part_id: String) -> void:
+func _apply_remote_install_part(part_id: String, box_id: String) -> void:
 	var part: Dictionary = _find_by_id(parts_data.get("parts", []), part_id, -1)
 	if not part.is_empty() and not is_part_installed(part_id):
 		installed_parts.append(part)
+		var tags: Array = part.get("tags", [])
+		if tags.has("radiation_degrading_camera") and String(current_mission.get("id", "")) == "europa_juno":
+			junocam_degraded = true
 		recalculate()
+		EventBus.status_message.emit("EKİP MONTE ETTİ: %s roket üzerine takıldı!" % String(part.get("name", "Ekipman")), false)
+	if box_id != "":
+		EventBus.box_installed.emit(box_id)
 
 func uninstall_part(index: int) -> void:
 	if index >= 0 and index < installed_parts.size():
@@ -853,7 +718,7 @@ func uninstall_part(index: int) -> void:
 			junocam_degraded = false
 		recalculate()
 
-func apply_side_quest_option(opt: Dictionary, quest_id: String = "") -> void:
+func apply_side_quest_option(opt: Dictionary, quest_id: String = "", broadcast: bool = true) -> void:
 	if quest_id != "" and not resolved_quest_ids.has(quest_id):
 		resolved_quest_ids.append(quest_id)
 
@@ -961,7 +826,7 @@ func apply_side_quest_option(opt: Dictionary, quest_id: String = "") -> void:
 	last_quest_is_negative = l_delta < 0 or (l_delta == 0 and (p_delta < 0.0 or s_delta < 0 or m_delta > 0.0))
 
 	if resolved_opt.has("set_launch_site"):
-		select_launch_site(String(resolved_opt["set_launch_site"]))
+		select_launch_site(String(resolved_opt["set_launch_site"]), false)
 
 	# Mars Power Cycling mekaniği kontrolü
 	if quest_id == "mars_power_cycling" and l_delta > 0:
@@ -984,6 +849,11 @@ func apply_side_quest_option(opt: Dictionary, quest_id: String = "") -> void:
 
 	EventBus.side_quest_resolved.emit(resolved_opt)
 	recalculate()
+	if broadcast and is_network_active:
+		NetworkClient.send_relay("side_quest_option", {
+			"quest_id": quest_id,
+			"opt": opt
+		})
 
 func recalculate() -> void:
 	total_mass_kg = float(current_mission.get("bus_dry_mass_kg", 50.0)) + _quest_mass_delta
@@ -1048,12 +918,7 @@ func get_dsn_max_bonus_gb() -> float:
 func sync_dsn_input(new_freq: float) -> void:
 	dsn_freq_value = clampf(new_freq, 0.0, 100.0)
 	if is_network_active:
-		_rpc_sync_dsn_input.rpc(dsn_freq_value)
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_sync_dsn_input(new_freq: float) -> void:
-	dsn_freq_value = clampf(new_freq, 0.0, 100.0)
-	EventBus.telemetry_changed.emit()
+		NetworkClient.send_relay("dsn_input", { "freq": dsn_freq_value })
 
 func sync_dsn_state(station_idx: int, target_center: float, station_timer: float, downloaded_gb: float, ssd_used: float, locked: bool) -> void:
 	dsn_station_idx = station_idx
@@ -1063,17 +928,14 @@ func sync_dsn_state(station_idx: int, target_center: float, station_timer: float
 	ssd_used_gb = ssd_used
 	dsn_locked = locked
 	if is_network_active:
-		_rpc_sync_dsn_state.rpc(station_idx, target_center, station_timer, downloaded_gb, ssd_used, locked)
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_sync_dsn_state(station_idx: int, target_center: float, station_timer: float, downloaded_gb: float, ssd_used: float, locked: bool) -> void:
-	dsn_station_idx = station_idx
-	dsn_target_center = target_center
-	dsn_station_timer = station_timer
-	downloaded_data_gb = downloaded_gb
-	ssd_used_gb = ssd_used
-	dsn_locked = locked
-	recalculate()
+		NetworkClient.send_relay("dsn_state", {
+			"station_idx": station_idx,
+			"target_center": target_center,
+			"station_timer": station_timer,
+			"downloaded_gb": downloaded_gb,
+			"ssd_used": ssd_used,
+			"locked": locked
+		})
 
 func start_crisis_vote(quest_id: String) -> void:
 	active_crisis_id = quest_id
@@ -1084,15 +946,12 @@ func cast_crisis_vote(quest_id: String, option_idx: int) -> void:
 	active_crisis_id = quest_id
 	crisis_votes[PlayerProfile.full_tag] = option_idx
 	if is_network_active:
-		_rpc_cast_crisis_vote.rpc(quest_id, PlayerProfile.full_tag, option_idx)
+		NetworkClient.send_relay("crisis_vote", {
+			"quest_id": quest_id,
+			"voter_tag": PlayerProfile.full_tag,
+			"option_idx": option_idx
+		})
 	EventBus.telemetry_changed.emit()
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_cast_crisis_vote(quest_id: String, voter_tag: String, option_idx: int) -> void:
-	if active_crisis_id == "" or active_crisis_id == quest_id:
-		active_crisis_id = quest_id
-		crisis_votes[voter_tag] = option_idx
-		EventBus.telemetry_changed.emit()
 
 func resolve_crisis_vote_network(quest_id: String, winner_idx: int, was_tie: bool, is_timeout: bool) -> void:
 	last_crisis_vote_result = {
@@ -1102,17 +961,7 @@ func resolve_crisis_vote_network(quest_id: String, winner_idx: int, was_tie: boo
 		"is_timeout": is_timeout
 	}
 	if is_network_active:
-		_rpc_resolve_crisis_vote.rpc(quest_id, winner_idx, was_tie, is_timeout)
-	EventBus.telemetry_changed.emit()
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_resolve_crisis_vote(quest_id: String, winner_idx: int, was_tie: bool, is_timeout: bool) -> void:
-	last_crisis_vote_result = {
-		"quest_id": quest_id,
-		"winner_idx": winner_idx,
-		"was_tie": was_tie,
-		"is_timeout": is_timeout
-	}
+		NetworkClient.send_relay("crisis_resolve", last_crisis_vote_result)
 	EventBus.telemetry_changed.emit()
 
 func apply_minigame_bonus(mass_delta: float, power_delta: float, landing_delta: int, science_delta: int, log_text: String) -> void:
@@ -1124,17 +973,13 @@ func apply_minigame_bonus(mass_delta: float, power_delta: float, landing_delta: 
 		decision_logs.append(log_text)
 	recalculate()
 	if is_network_active:
-		_rpc_apply_minigame_bonus.rpc(mass_delta, power_delta, landing_delta, science_delta, log_text)
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_apply_minigame_bonus(mass_delta: float, power_delta: float, landing_delta: int, science_delta: int, log_text: String) -> void:
-	_quest_mass_delta += mass_delta
-	_quest_power_delta += power_delta
-	_quest_landing_delta += landing_delta
-	_quest_science_delta += science_delta
-	if log_text != "":
-		decision_logs.append(log_text)
-	recalculate()
+		NetworkClient.send_relay("minigame_bonus", {
+			"mass_delta": mass_delta,
+			"power_delta": power_delta,
+			"landing_delta": landing_delta,
+			"science_delta": science_delta,
+			"log_text": log_text
+		})
 
 func is_random_quest_budget_valid(opt: Dictionary) -> bool:
 	var b_delta: float = float(opt.get("budget_delta", 0.0))
@@ -1166,7 +1011,113 @@ func get_target_download_gb() -> float:
 			return 150.0
 
 func mark_briefing_completed() -> void:
-	briefing_completed = true
+	if not briefing_completed:
+		briefing_completed = true
+		if is_network_active:
+			NetworkClient.send_relay("briefing_done", {})
+
+func set_power_wiring_broken(broken: bool) -> void:
+	if power_wiring_broken == broken:
+		return
+	power_wiring_broken = broken
+	if is_network_active:
+		NetworkClient.send_relay("power_wiring", { "broken": broken })
+
+func trigger_launch_sequence() -> void:
+	if is_network_active:
+		NetworkClient.send_relay("launch_rocket", {})
+	get_tree().change_scene_to_file("res://scenes/world/landing_sim.tscn")
+
+func _on_net_relay(event_name: String, data: Dictionary, from_peer_id: int) -> void:
+	match event_name:
+		"player_state":
+			EventBus.remote_player_updated.emit(from_peer_id, data)
+		"buy_part":
+			var part_id: String = String(data.get("part_id", ""))
+			var part: Dictionary = _find_by_id(parts_data.get("parts", []), part_id, -1)
+			if not part.is_empty():
+				var cost: float = float(part.get("cost_m", 0))
+				if budget_m >= cost:
+					budget_m -= cost
+					purchased_parts.append(part)
+					var spawn_payload: Dictionary = part.duplicate(true)
+					spawn_payload["_box_id"] = String(data.get("box_id", ""))
+					spawn_payload["_jx"] = float(data.get("jx", 0.0))
+					spawn_payload["_jy"] = float(data.get("jy", 0.0))
+					EventBus.cargo_spawned.emit(spawn_payload)
+					EventBus.telemetry_changed.emit()
+		"box_pickup":
+			EventBus.box_picked_up.emit(String(data.get("box_id", "")), int(data.get("peer_id", from_peer_id)))
+		"box_drop":
+			EventBus.box_dropped.emit(
+				String(data.get("box_id", "")),
+				Vector2(float(data.get("x", 0.0)), float(data.get("y", 0.0)))
+			)
+		"install_part":
+			_apply_remote_install_part(String(data.get("part_id", "")), String(data.get("box_id", "")))
+		"select_rocket":
+			var r_id: String = String(data.get("rocket_id", ""))
+			if r_id != "":
+				selected_rocket = _find_by_id(parts_data.get("rockets", []), r_id, 0)
+				_paid_rocket_cost = float(data.get("paid_cost", _paid_rocket_cost))
+				budget_m = float(data.get("budget_m", budget_m))
+				var log_line: String = String(data.get("log_line", ""))
+				if log_line != "":
+					decision_logs.append(log_line)
+				EventBus.rocket_changed.emit(selected_rocket)
+				recalculate()
+		"side_quest_option":
+			var q_id: String = String(data.get("quest_id", ""))
+			var opt: Dictionary = data.get("opt", {}) if data.get("opt") is Dictionary else {}
+			if not opt.is_empty():
+				apply_side_quest_option(opt, q_id, false)
+		"briefing_done":
+			briefing_completed = true
+			EventBus.status_message.emit("BRİFİNG TAMAMLANDI: Ekip üyesi görev hedeflerini onayladı.", false)
+		"power_wiring":
+			power_wiring_broken = bool(data.get("broken", false))
+			EventBus.telemetry_changed.emit()
+		"minigame_bonus":
+			_quest_mass_delta += float(data.get("mass_delta", 0.0))
+			_quest_power_delta += float(data.get("power_delta", 0.0))
+			_quest_landing_delta += int(data.get("landing_delta", 0))
+			_quest_science_delta += int(data.get("science_delta", 0))
+			var log_txt: String = String(data.get("log_text", ""))
+			if log_txt != "":
+				decision_logs.append(log_txt)
+			recalculate()
+		"dsn_input":
+			dsn_freq_value = clampf(float(data.get("freq", dsn_freq_value)), 0.0, 100.0)
+			EventBus.telemetry_changed.emit()
+		"dsn_state":
+			dsn_station_idx = int(data.get("station_idx", dsn_station_idx))
+			dsn_target_center = float(data.get("target_center", dsn_target_center))
+			dsn_station_timer = float(data.get("station_timer", dsn_station_timer))
+			downloaded_data_gb = float(data.get("downloaded_gb", downloaded_data_gb))
+			ssd_used_gb = float(data.get("ssd_used", ssd_used_gb))
+			dsn_locked = bool(data.get("locked", dsn_locked))
+			recalculate()
+		"crisis_trigger":
+			var q_id: String = String(data.get("quest_id", ""))
+			for q in get_available_side_quests_for_mission():
+				if String(q.get("id", "")) == q_id:
+					if not _triggered_crisis_ids.has(q_id):
+						_triggered_crisis_ids.append(q_id)
+					EventBus.crisis_alert.emit(q_id.to_upper())
+					EventBus.side_quest_triggered.emit(q)
+					break
+		"crisis_vote":
+			var q_id: String = String(data.get("quest_id", ""))
+			if active_crisis_id == "" or active_crisis_id == q_id:
+				active_crisis_id = q_id
+				crisis_votes[String(data.get("voter_tag", ""))] = int(data.get("option_idx", 0))
+				EventBus.telemetry_changed.emit()
+		"crisis_resolve":
+			last_crisis_vote_result = data.duplicate(true)
+			EventBus.telemetry_changed.emit()
+		"launch_rocket":
+			if ResourceLoader.exists("res://scenes/world/landing_sim.tscn"):
+				get_tree().change_scene_to_file("res://scenes/world/landing_sim.tscn")
 
 func is_power_lab_decided() -> bool:
 	var quests: Array = get_available_side_quests_for_mission()

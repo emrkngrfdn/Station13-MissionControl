@@ -1,0 +1,13 @@
+name = "station13-multiplayer"
+main = "src/index.js"
+compatibility_date = "2026-03-01"
+
+[durable_objects]
+bindings = [
+  { name = "LOBBY_REGISTRY", class_name = "LobbyRegistry" },
+  { name = "GAME_ROOM", class_name = "GameRoom" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["LobbyRegistry", "GameRoom"]

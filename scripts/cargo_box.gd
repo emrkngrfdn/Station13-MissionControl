@@ -1,10 +1,13 @@
 extends Area2D
 
 var part_data: Dictionary = {}
+var box_id: String = ""
 var carrier: Node2D = null
 
 func setup(data: Dictionary) -> void:
 	part_data = data
+	if data.has("_box_id"):
+		box_id = String(data.get("_box_id", ""))
 	if has_node("Label"):
 		var lbl: Label = $Label
 		lbl.text = String(data.get("name", "Kargo")).substr(0, 22)
@@ -24,11 +27,11 @@ func _ready() -> void:
 	body_exited.connect(_on_body_exited)
 
 func _on_body_entered(body: Node2D) -> void:
-	if body.is_in_group("player") and carrier == null:
+	if body.is_in_group("player") and bool(body.get("is_local_player")) and carrier == null:
 		body.set("interactable_target", self)
 
 func _on_body_exited(body: Node2D) -> void:
-	if body.is_in_group("player") and body.get("interactable_target") == self:
+	if body.is_in_group("player") and bool(body.get("is_local_player")) and body.get("interactable_target") == self:
 		body.set("interactable_target", null)
 
 func interact() -> void:
@@ -38,7 +41,7 @@ func interact() -> void:
 	var target_player: Node2D = null
 	var best_dist: float = 999999.0
 	for p in players:
-		if p is Node2D:
+		if p is Node2D and bool(p.get("is_local_player")):
 			var p_node: Node2D = p as Node2D
 			if p_node.get("interactable_target") == self:
 				target_player = p_node
@@ -61,3 +64,8 @@ func interact() -> void:
 		reparent(target_player)
 		position = Vector2(0, -18)
 		EventBus.status_message.emit("ALINDI: %s (Montaj Hangarı'na götür veya [E/Space] ile bırak)" % String(part_data.get("name", "Kargo")), false)
+		if GameState.is_network_active and box_id != "":
+			NetworkClient.send_relay("box_pickup", {
+				"box_id": box_id,
+				"peer_id": GameState.my_peer_id
+			})

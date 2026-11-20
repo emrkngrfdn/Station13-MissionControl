@@ -20,6 +20,7 @@ config/icon="res://icon.svg"
 EventBus="*res://autoloads/EventBus.gd"
 PlayerProfile="*res://autoloads/PlayerProfile.gd"
 LeaderboardManager="*res://autoloads/LeaderboardManager.gd"
+NetworkClient="*res://autoloads/NetworkClient.gd"
 GameState="*res://autoloads/GameState.gd"
 
 [display]

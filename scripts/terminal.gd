@@ -67,7 +67,7 @@ func _process(delta: float) -> void:
 		$PromptLabel.position.y = _base_label_y + sin(_beacon_t * 3.2) * 2.5 * inv_sy
 
 func _on_body_entered(body: Node2D) -> void:
-	if body.is_in_group("player"):
+	if body.is_in_group("player") and bool(body.get("is_local_player")):
 		body.interactable_target = self
 		if beacon_mode:
 			$PromptLabel.text = "[E] ETKİLEŞİM ▼"
@@ -76,7 +76,7 @@ func _on_body_entered(body: Node2D) -> void:
 			$PromptLabel.visible = true
 
 func _on_body_exited(body: Node2D) -> void:
-	if body.is_in_group("player") and body.interactable_target == self:
+	if body.is_in_group("player") and bool(body.get("is_local_player")) and body.interactable_target == self:
 		body.interactable_target = null
 		if beacon_mode:
 			$PromptLabel.text = _idle_text
@@ -94,9 +94,10 @@ func interact() -> void:
 func _try_install_carried_box() -> void:
 	var players: Array = get_tree().get_nodes_in_group("player")
 	for p in players:
-		if p.carried_box != null and is_instance_valid(p.carried_box):
+		if bool(p.get("is_local_player")) and p.carried_box != null and is_instance_valid(p.carried_box):
 			var box: Node2D = p.carried_box
-			if GameState.install_part(box.part_data):
+			var bid: String = String(box.get("box_id")) if box.get("box_id") != null else ""
+			if GameState.install_part(box.part_data, bid):
 				p.carried_box = null
 				box.queue_free()
 			return

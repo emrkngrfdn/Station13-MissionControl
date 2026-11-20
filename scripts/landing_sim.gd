@@ -87,6 +87,8 @@ func _finish_simulation() -> void:
 	]
 
 	_build_structured_report(report, success, time_str)
+	if GameState.is_network_active and not GameState.is_room_host:
+		return_btn.text = "ANA MENÜYE AYRIL (HOST LOBİYE DÖNDÜREBİLİR)"
 	return_btn.disabled = false
 
 func _build_structured_report(report: Dictionary, success: bool, time_str: String) -> void:
@@ -282,5 +284,15 @@ func _make_section_card(header_txt: String, lines: Array[String], border_col: Co
 	return card
 
 func _on_return_lobby_pressed() -> void:
+	if GameState.is_network_active:
+		if GameState.is_room_host:
+			GameState.setup_mission(GameState.current_mission_idx, GameState.current_modifier_idx, false)
+			NetworkClient.send_return_to_lobby()
+			get_tree().change_scene_to_file("res://scenes/world/waiting_room.tscn")
+		else:
+			GameState.leave_room()
+			GameState.reset_lobby()
+			get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
+		return
 	GameState.reset_lobby()
 	get_tree().change_scene_to_file("res://scenes/world/waiting_room.tscn")

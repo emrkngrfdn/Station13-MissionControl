@@ -1,6 +1,7 @@
 extends Node2D
 
 const ASTRONAUT_SHEET: Texture2D = preload("res://assets/astronaut_sheet.png")
+const PLAYER_SCENE: PackedScene = preload("res://scenes/entities/player.tscn")
 const HUD_PLAYERS_SHEET: Texture2D = preload("res://assets/ui/hud_players_sheet.png")
 const SETTINGS_COLORS_BAR: Texture2D = preload("res://assets/ui/settings_colors_bar.png")
 const SETTINGS_PANEL_SHEET: Texture2D = preload("res://assets/ui/settings_panel_sheet.png")
@@ -56,6 +57,7 @@ const SUIT_COLORS: Array[Color] = [
 @onready var holo_prompt: Label = $HostLaptopTerminal/PromptLabel
 
 var _beacon_t: float = 0.0
+var _remote_players: Dictionary = {}
 
 func _ready() -> void:
 	_set_settings_open(false)
@@ -76,6 +78,8 @@ func _ready() -> void:
 	EventBus.lobby_updated.connect(_on_lobby_updated)
 	EventBus.telemetry_changed.connect(_refresh_top_bar)
 	EventBus.terminal_opened.connect(_on_terminal_opened)
+	EventBus.remote_player_updated.connect(_on_remote_player_updated)
+	EventBus.remote_player_left.connect(_on_remote_player_left)
 	_on_lobby_updated(GameState.lobby_players)
 	_refresh_room_type_buttons()
 	_refresh_host_permissions()
@@ -148,49 +152,97 @@ func _color_to_row(c: Color) -> int:
 	return 0 # Kırmızı
 
 func _on_lobby_updated(players: Array) -> void:
-	for child in crew_dummies.get_children():
-		child.queue_free()
+	if GameState.is_network_active:
+		var active_ids: Dictionary = {}
+		var slot_idx: int = 0
+		for i in range(players.size()):
+			var p: Dictionary = players[i]
+			var pid: int = int(p.get("peer_id", 0))
+			if pid == GameState.my_peer_id or pid <= 0:
+				continue
+			active_ids[pid] = true
+			if not _remote_players.has(pid) or not is_instance_valid(_remote_players[pid]):
+				var rp: CharacterBody2D = PLAYER_SCENE.instantiate() as CharacterBody2D
+				var spawn_pos: Vector2 = CREW_POSITIONS[slot_idx % CREW_POSITIONS.size()]
+				rp.set("is_local_player", false)
+				rp.set("peer_id", pid)
+				rp.set("player_tag", String(p.get("tag", "Mürettebat")))
+				crew_dummies.add_child(rp)
+				rp.call("setup_remote", pid, String(p.get("tag", "Mürettebat")), spawn_pos)
+				_remote_players[pid] = rp
+			else:
+				var existing_rp: Node = _remote_players[pid]
+				existing_rp.set("player_tag", String(p.get("tag", "Mürettebat")))
+				existing_rp.call("_sync_color_row")
+			slot_idx += 1
 
-	var slot_idx: int = 0
-	for i in range(players.size()):
-		var p: Dictionary = players[i]
-		if String(p.get("tag", "")) == PlayerProfile.full_tag:
-			continue
-		var dummy: Node2D = Node2D.new()
-		dummy.position = CREW_POSITIONS[slot_idx % CREW_POSITIONS.size()]
-		slot_idx += 1
+		for old_pid in _remote_players.keys():
+			if not active_ids.has(old_pid):
+				var old_node: Node = _remote_players[old_pid]
+				if is_instance_valid(old_node):
+					old_node.queue_free()
+				_remote_players.erase(old_pid)
+	else:
+		_remote_players.clear()
+		for child in crew_dummies.get_children():
+			child.queue_free()
 
-		var spr: Sprite2D = Sprite2D.new()
-		spr.texture = ASTRONAUT_SHEET
-		spr.scale = Vector2(0.85, 0.85)
-		spr.offset.x = -7.0
-		spr.region_enabled = true
-		var p_color: Color = p.get("color", SUIT_COLORS[i % SUIT_COLORS.size()])
-		var row: int = _color_to_row(p_color)
-		spr.region_rect = Rect2(0, floor(row * 46.75), 50, 46)
-		dummy.add_child(spr)
+		var slot_idx: int = 0
+		for i in range(players.size()):
+			var p: Dictionary = players[i]
+			if String(p.get("tag", "")) == PlayerProfile.full_tag:
+				continue
+			var dummy: Node2D = Node2D.new()
+			dummy.position = CREW_POSITIONS[slot_idx % CREW_POSITIONS.size()]
+			slot_idx += 1
 
-		var tag: Label = Label.new()
-		tag.text = p.get("tag", "Crew")
-		tag.z_index = 20
-		tag.z_as_relative = false
-		tag.offset_left = -35
-		tag.offset_top = -30
-		tag.offset_right = 35
-		tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		tag.add_theme_font_size_override("font_size", 8)
-		dummy.add_child(tag)
+			var spr: Sprite2D = Sprite2D.new()
+			spr.texture = ASTRONAUT_SHEET
+			spr.scale = Vector2(0.85, 0.85)
+			spr.offset.x = -7.0
+			spr.region_enabled = true
+			var p_color: Color = p.get("color", SUIT_COLORS[i % SUIT_COLORS.size()])
+			var row: int = _color_to_row(p_color)
+			spr.region_rect = Rect2(0, floor(row * 46.75), 50, 46)
+			dummy.add_child(spr)
 
-		crew_dummies.add_child(dummy)
+			var tag: Label = Label.new()
+			tag.text = p.get("tag", "Crew")
+			tag.z_index = 20
+			tag.z_as_relative = false
+			tag.offset_left = -35
+			tag.offset_top = -30
+			tag.offset_right = 35
+			tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			tag.add_theme_font_size_override("font_size", 8)
+			dummy.add_child(tag)
+
+			crew_dummies.add_child(dummy)
 
 	_refresh_helmet_slots(players)
 	_refresh_color_buttons(players)
 	_refresh_host_permissions()
 	_refresh_top_bar()
 
+func _on_remote_player_updated(peer_id: int, state: Dictionary) -> void:
+	if _remote_players.has(peer_id) and is_instance_valid(_remote_players[peer_id]):
+		_remote_players[peer_id].call("apply_remote_state", state)
+
+func _on_remote_player_left(peer_id: int) -> void:
+	if _remote_players.has(peer_id):
+		var node: Node = _remote_players[peer_id]
+		if is_instance_valid(node):
+			node.queue_free()
+		_remote_players.erase(peer_id)
+
 func _refresh_color_buttons(players: Array) -> void:
 	var my_idx: int = 0
-	if GameState.is_room_open and not GameState.is_room_host:
+	if GameState.is_network_active:
+		for i in range(players.size()):
+			if int(players[i].get("peer_id", -1)) == GameState.my_peer_id:
+				my_idx = i
+				break
+	elif GameState.is_room_open and not GameState.is_room_host:
 		for i in range(players.size()):
 			if String(players[i].get("tag", "")) == PlayerProfile.full_tag:
 				my_idx = i
@@ -294,7 +346,11 @@ func _color_to_helmet_idx(c: Color) -> int:
 func _refresh_top_bar() -> void:
 	var m: Dictionary = GameState.current_mission
 	var code_txt: String = GameState.room_code if GameState.room_code != "" else "LOKAL"
-	room_info_label.text = "ODA: %s" % code_txt
+	if GameState.is_network_active and GameState.room_code != "":
+		var vis_txt: String = "AÇIK" if GameState.is_room_public else "ÖZEL"
+		room_info_label.text = "%s (%s)" % [code_txt, vis_txt]
+	else:
+		room_info_label.text = "ODA: %s" % code_txt
 	mission_summary_label.text = "GÖREV:\n%s" % m.get("name", "-")
 	mission_desc.text = "%s\nYörünge: %s | Güç: %.0fW | Kütle Limiti: %.0fkg" % [
 		m.get("description", ""),
