@@ -1,6 +1,6 @@
 extends Node
 
-var nickname: String = "Commander"
+var nickname: String = "Astronaut"
 var player_id: String = ""
 var full_tag: String = ""
 
@@ -11,18 +11,10 @@ func _ready() -> void:
 	full_tag = "%s#%s" % [nickname, player_id]
 
 func set_nickname(new_name: String) -> void:
-	var cleaned: String = new_name.strip_edges()
+	var cleaned: String = new_name.replace("#", "").strip_edges()
 	if cleaned == "":
 		return
-	if cleaned.contains("#"):
-		var parts: PackedStringArray = cleaned.split("#", false, 1)
-		if parts.size() == 2 and parts[0].strip_edges() != "" and parts[1].strip_edges() != "":
-			nickname = parts[0].strip_edges()
-			player_id = parts[1].strip_edges()
-		else:
-			nickname = cleaned.replace("#", "")
-	else:
-		nickname = cleaned
+	nickname = cleaned
 	full_tag = "%s#%s" % [nickname, player_id]
 
 func normalize_tag(raw_tag: String) -> String:

@@ -1,8 +1,13 @@
 extends CharacterBody2D
 
+const NORMAL_SHEET: Texture2D = preload("res://assets/astronaut_sheet.png")
+const CARRY_SHEET: Texture2D = preload("res://assets/astronaut_carry_sheet.png")
+
 const CELL_W: float = 50.0
 const CELL_H: float = 46.75
 const COL_CENTER_X: Array[float] = [32.0, 28.0, 24.0, 18.0, 16.0]
+const CARRY_COL_CENTER_X: Array[float] = [32.0, 29.5, 24.5, 19.5, 16.0]
+const CARRY_SIDE_COLS: Array[int] = [1, 3, 4]
 
 @export var base_speed: float = 120.0
 @export var is_local_player: bool = true
@@ -18,6 +23,7 @@ var _anim_timer: float = 0.0
 var _walk_frame: int = 0
 var _vert_phase: int = 0
 var _current_col: int = 0
+var _is_carrying_anim: bool = false
 var _net_target_pos: Vector2 = Vector2.ZERO
 var _has_net_state: bool = false
 var _net_send_timer: float = 0.0
@@ -92,6 +98,7 @@ func force_send_network_state() -> void:
 		"x": snappedf(global_position.x, 0.1),
 		"y": snappedf(global_position.y, 0.1),
 		"anim_col": _current_col,
+		"carrying": carried_box != null,
 		"flip_h": sprite.flip_h,
 		"rot": snappedf(sprite.rotation, 0.01),
 		"off_y": snappedf(sprite.offset.y, 0.1)
@@ -141,6 +148,7 @@ func apply_remote_state(state: Dictionary) -> void:
 	if not _has_net_state or global_position.distance_to(_net_target_pos) > 160.0:
 		global_position = _net_target_pos
 		_has_net_state = true
+	_is_carrying_anim = bool(state.get("carrying", carried_box != null))
 	sprite.flip_h = bool(state.get("flip_h", false))
 	sprite.rotation = float(state.get("rot", 0.0))
 	sprite.offset.y = float(state.get("off_y", 0.0))
@@ -178,22 +186,45 @@ func _physics_process(delta: float) -> void:
 		if get_position_delta().length() < velocity.length() * delta * 0.5:
 			_apply_corner_nudge(input_dir.normalized(), velocity.length() * delta)
 
+	_is_carrying_anim = (carried_box != null)
 	if carried_box != null:
-		if input_dir.x < -0.05:
-			sprite.flip_h = true
-		elif input_dir.x > 0.05:
-			sprite.flip_h = false
-		sprite.rotation = 0.0
 		if input_dir.length() > 0.1:
-			_anim_timer += delta
-			if _anim_timer >= 0.14:
-				_anim_timer = 0.0
-				_vert_phase = (_vert_phase + 1) % 2
-			sprite.offset.y = -1.5 if _vert_phase == 0 else 0.0
+			if abs(input_dir.y) > abs(input_dir.x):
+				sprite.flip_h = false
+				_anim_timer += delta
+				if _anim_timer >= 0.11:
+					_anim_timer = 0.0
+					_vert_phase = (_vert_phase + 1) % 4
+				match _vert_phase:
+					0:
+						sprite.offset.y = -1.5
+						sprite.rotation = -0.07
+					2:
+						sprite.offset.y = -1.5
+						sprite.rotation = 0.07
+					_:
+						sprite.offset.y = 0.0
+						sprite.rotation = 0.0
+				_update_sprite_frame(2 if input_dir.y < 0.0 else 0)
+			else:
+				if input_dir.x < -0.05:
+					sprite.flip_h = true
+				elif input_dir.x > 0.05:
+					sprite.flip_h = false
+				sprite.rotation = 0.0
+				sprite.offset.y = 0.0
+				_anim_timer += delta
+				if _anim_timer >= 0.13:
+					_anim_timer = 0.0
+					_walk_frame = (_walk_frame + 1) % CARRY_SIDE_COLS.size()
+				_update_sprite_frame(CARRY_SIDE_COLS[_walk_frame])
 		else:
 			_anim_timer = 0.0
+			_vert_phase = 0
+			sprite.flip_h = false
+			sprite.rotation = 0.0
 			sprite.offset.y = 0.0
-		_update_sprite_frame(4)
+			_update_sprite_frame(0)
 	elif input_dir.length() > 0.1:
 		if abs(input_dir.y) > abs(input_dir.x):
 			# Dikey hareket (aşağı / yukarı): ön yüz yürüme animasyonu
@@ -270,9 +301,12 @@ func _update_sprite_frame(col: int) -> void:
 	_current_col = col
 	if sprite == null:
 		return
+	var target_tex: Texture2D = CARRY_SHEET if _is_carrying_anim else NORMAL_SHEET
+	if sprite.texture != target_tex:
+		sprite.texture = target_tex
 	var y_pos: float = floor(_row_idx * CELL_H)
 	sprite.region_rect = Rect2(col * CELL_W, y_pos, CELL_W, 46.0)
-	var cx: float = COL_CENTER_X[col]
+	var cx: float = CARRY_COL_CENTER_X[col] if _is_carrying_anim else COL_CENTER_X[col]
 	sprite.offset.x = (cx - 25.0) if sprite.flip_h else (25.0 - cx)
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -353,6 +387,8 @@ func drop_carried_box(target_pos: Vector2 = Vector2.INF) -> void:
 		box.global_position = global_position + Vector2(0, 22)
 	else:
 		box.global_position = target_pos
+	box.visible = true
+	box.rotation = 0.0
 	box.set("carrier", null)
 	carried_box = null
 	var box_name: String = String(box.get("part_data").get("name", "Kargo")) if box.get("part_data") is Dictionary else "Kargo"

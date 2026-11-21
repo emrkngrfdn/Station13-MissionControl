@@ -13,6 +13,7 @@
 [ext_resource type="Texture2D" uid="uid://coey807p3tng3" path="res://assets/ui/settings_colors_bar.png" id="11_colors_bar"]
 [ext_resource type="Texture2D" uid="uid://cvqflxo52yhee" path="res://assets/ui/settings_panel_sheet.png" id="12_settings_sheet"]
 [ext_resource type="PackedScene" path="res://scenes/ui/virtual_joystick.tscn" id="13_vj"]
+[ext_resource type="PackedScene" path="res://scenes/ui/interact_button.tscn" id="14_ib"]
 
 [sub_resource type="RectangleShape2D" id="WallH"]
 size = Vector2(529, 14)
@@ -310,18 +311,16 @@ ignore_texture_size = true
 stretch_mode = 5
 
 [node name="VirtualJoystick" parent="HUD" instance=ExtResource("13_vj")]
-offset_left = 34.0
-offset_top = 236.0
-offset_right = 110.0
-offset_bottom = 312.0
+offset_left = 0.0
+offset_top = 100.0
+offset_right = 240.0
+offset_bottom = 314.0
 
-[node name="InteractBtn" type="Button" parent="HUD"]
-offset_left = 548.0
-offset_top = 286.0
-offset_right = 632.0
-offset_bottom = 312.0
-theme = ExtResource("4_theme")
-text = "ETKİLEŞİM"
+[node name="InteractBtn" parent="HUD" instance=ExtResource("14_ib")]
+offset_left = 556.0
+offset_top = 252.0
+offset_right = 610.0
+offset_bottom = 310.0
 
 [node name="SettingsBackdrop" type="ColorRect" parent="HUD" unique_id=501122410]
 unique_name_in_owner = true

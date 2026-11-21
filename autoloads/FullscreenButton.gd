@@ -1,48 +1,59 @@
 extends CanvasLayer
 
-var _btn: Button = null
+const FULLSCREEN_SHEET: Texture2D = preload("res://assets/ui/btn_fullscreen.png")
+
+var _btn: TextureButton = null
+var _tex_shrink: AtlasTexture = null
+var _tex_expand: AtlasTexture = null
 var _last_is_fullscreen: bool = false
 
 func _ready() -> void:
 	layer = 90
-	_btn = Button.new()
+
+	_tex_shrink = AtlasTexture.new()
+	_tex_shrink.atlas = FULLSCREEN_SHEET
+	_tex_shrink.region = Rect2(0, 0, 19, 19)
+
+	_tex_expand = AtlasTexture.new()
+	_tex_expand.atlas = FULLSCREEN_SHEET
+	_tex_expand.region = Rect2(24, 0, 19, 19)
+
+	_btn = TextureButton.new()
 	_btn.name = "FullscreenToggleBtn"
 	_btn.focus_mode = Control.FOCUS_NONE
 	_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_btn.ignore_texture_size = true
+	_btn.stretch_mode = TextureButton.STRETCH_SCALE
 	_btn.anchor_left = 1.0
 	_btn.anchor_top = 0.0
 	_btn.anchor_right = 1.0
 	_btn.anchor_bottom = 0.0
-	_btn.offset_left = -78.0
+	_btn.offset_left = -29.0
 	_btn.offset_right = -6.0
 	_btn.offset_top = 6.0
-	_btn.offset_bottom = 24.0
-	_btn.add_theme_font_size_override("font_size", 8)
+	_btn.offset_bottom = 29.0
+	_btn.pivot_offset = Vector2(11.5, 11.5)
 
-	var sb_norm: StyleBoxFlat = StyleBoxFlat.new()
-	sb_norm.bg_color = Color(0.06, 0.11, 0.19, 0.88)
-	sb_norm.border_width_left = 1
-	sb_norm.border_width_top = 1
-	sb_norm.border_width_right = 1
-	sb_norm.border_width_bottom = 1
-	sb_norm.border_color = Color(0.36, 0.72, 0.96, 0.9)
-	sb_norm.corner_radius_top_left = 2
-	sb_norm.corner_radius_top_right = 2
-	sb_norm.corner_radius_bottom_right = 2
-	sb_norm.corner_radius_bottom_left = 2
-	sb_norm.content_margin_left = 5.0
-	sb_norm.content_margin_right = 5.0
-	sb_norm.content_margin_top = 2.0
-	sb_norm.content_margin_bottom = 2.0
-
-	var sb_hov: StyleBoxFlat = sb_norm.duplicate() as StyleBoxFlat
-	sb_hov.bg_color = Color(0.12, 0.2, 0.34, 0.95)
-	sb_hov.border_color = Color(0.58, 0.9, 1.0, 1.0)
-
-	_btn.add_theme_stylebox_override("normal", sb_norm)
-	_btn.add_theme_stylebox_override("hover", sb_hov)
-	_btn.add_theme_stylebox_override("pressed", sb_hov)
-	_btn.add_theme_color_override("font_color", Color(0.84, 0.95, 1.0, 1.0))
+	_btn.mouse_entered.connect(func() -> void:
+		_btn.scale = Vector2(1.08, 1.08)
+		_btn.modulate = Color(1.15, 1.15, 1.15, 1.0)
+	)
+	_btn.mouse_exited.connect(func() -> void:
+		_btn.scale = Vector2.ONE
+		_btn.modulate = Color.WHITE
+	)
+	_btn.button_down.connect(func() -> void:
+		_btn.scale = Vector2(0.94, 0.94)
+		_btn.modulate = Color(0.85, 0.9, 0.96, 1.0)
+	)
+	_btn.button_up.connect(func() -> void:
+		if _btn.is_hovered():
+			_btn.scale = Vector2(1.08, 1.08)
+			_btn.modulate = Color(1.15, 1.15, 1.15, 1.0)
+		else:
+			_btn.scale = Vector2.ONE
+			_btn.modulate = Color.WHITE
+	)
 
 	_btn.pressed.connect(_on_fullscreen_pressed)
 	add_child(_btn)
@@ -62,7 +73,7 @@ func _update_vertical_offset() -> void:
 	var top_y: float = 29.0 if is_station else 6.0
 	if not is_equal_approx(_btn.offset_top, top_y):
 		_btn.offset_top = top_y
-		_btn.offset_bottom = top_y + 18.0
+		_btn.offset_bottom = top_y + 23.0
 
 func _is_fullscreen() -> bool:
 	var mode: DisplayServer.WindowMode = DisplayServer.window_get_mode()
@@ -74,7 +85,8 @@ func _refresh_button(force: bool) -> void:
 		return
 	_last_is_fullscreen = is_fs
 	if _btn != null:
-		_btn.text = "[✕] KÜÇÜLT" if is_fs else "[⛶] TAM EKRAN"
+		_btn.texture_normal = _tex_shrink if is_fs else _tex_expand
+		_btn.tooltip_text = "Küçült" if is_fs else "Tam Ekran"
 
 func _on_fullscreen_pressed() -> void:
 	if _is_fullscreen():

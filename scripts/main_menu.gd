@@ -1,24 +1,40 @@
 extends Control
 
+const ROOM_BROWSER_PANEL_TEX: Texture2D = preload("res://assets/ui/room_browser_panel.png")
+const ROOM_BROWSER_ELEMENTS_TEX: Texture2D = preload("res://assets/ui/room_browser_elements.png")
+
 @onready var nickname_input: LineEdit = %NicknameInput
+@onready var player_tag_label: Label = %PlayerTagLabel
 @onready var room_code_input: LineEdit = %RoomCodeInput
 @onready var status_label: Label = %MenuStatusLabel
+@onready var create_room_btn: TextureButton = %CreateRoomBtn
+@onready var join_btn: TextureButton = %JoinBtn
+@onready var open_browser_btn: TextureButton = %OpenBrowserBtn
 
-var _open_browser_btn: Button = null
-var _browser_modal: PanelContainer = null
+var _browser_backdrop: ColorRect = null
+var _browser_modal: TextureRect = null
 var _search_input: LineEdit = null
+var _rooms_scroll: ScrollContainer = null
 var _public_rooms_list: VBoxContainer = null
+var _empty_state_box: VBoxContainer = null
+var _empty_state_label: Label = null
 var _refresh_timer: float = 0.0
 var _is_connecting: bool = false
 
 func _ready() -> void:
 	nickname_input.text = PlayerProfile.nickname
-	status_label.text = "Profilin: %s" % PlayerProfile.full_tag
-	room_code_input.placeholder_text = "Özel Oda Kodu (örn: KZM-47)"
+	if PlayerProfile.player_id != "":
+		player_tag_label.text = "#%s" % PlayerProfile.player_id
+		player_tag_label.visible = true
+	else:
+		player_tag_label.visible = false
+	status_label.text = ""
+	status_label.visible = false
+	room_code_input.placeholder_text = "Özel Oda Kodu"
 
-	var solo_btn: Button = get_node_or_null("CenterBox/MenuPanel/VBox/SoloBtn") as Button
-	if solo_btn != null:
-		solo_btn.visible = false
+	_setup_texture_button(create_room_btn)
+	_setup_texture_button(join_btn)
+	_setup_texture_button(open_browser_btn)
 
 	NetworkClient.public_rooms_fetched.connect(_on_public_rooms_fetched)
 	NetworkClient.room_created.connect(_on_net_room_created)
@@ -30,10 +46,12 @@ func _ready() -> void:
 	if GameState.last_join_error != "":
 		status_label.text = GameState.last_join_error
 		status_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.4))
+		status_label.visible = true
 		GameState.last_join_error = ""
 	elif not NetworkClient.is_server_configured():
 		status_label.text = "Çevrimiçi sunucu henüz ayarlı değil."
 		status_label.add_theme_color_override("font_color", Color(1.0, 0.82, 0.38))
+		status_label.visible = true
 
 func _exit_tree() -> void:
 	if NetworkClient.public_rooms_fetched.is_connected(_on_public_rooms_fetched):
@@ -53,121 +71,181 @@ func _process(delta: float) -> void:
 		_refresh_timer = 0.0
 		_refresh_public_rooms()
 
+func _setup_texture_button(btn: TextureButton) -> void:
+	if btn == null:
+		return
+	btn.pivot_offset = btn.size * 0.5
+	btn.mouse_entered.connect(func() -> void:
+		if not btn.disabled:
+			btn.scale = Vector2(1.02, 1.02)
+			btn.modulate = Color(1.12, 1.12, 1.12, 1.0)
+	)
+	btn.mouse_exited.connect(func() -> void:
+		btn.scale = Vector2.ONE
+		btn.modulate = Color(0.6, 0.65, 0.7, 0.7) if btn.disabled else Color.WHITE
+	)
+	btn.button_down.connect(func() -> void:
+		if not btn.disabled:
+			btn.scale = Vector2(0.97, 0.97)
+			btn.modulate = Color(0.85, 0.9, 0.96, 1.0)
+	)
+	btn.button_up.connect(func() -> void:
+		if btn.disabled:
+			btn.scale = Vector2.ONE
+			btn.modulate = Color(0.6, 0.65, 0.7, 0.7)
+		elif btn.is_hovered():
+			btn.scale = Vector2(1.02, 1.02)
+			btn.modulate = Color(1.12, 1.12, 1.12, 1.0)
+		else:
+			btn.scale = Vector2.ONE
+			btn.modulate = Color.WHITE
+	)
+
 func _setup_room_browser_ui() -> void:
-	var vbox: Node = get_node_or_null("CenterBox/MenuPanel/VBox")
-	if vbox == null or _browser_modal != null:
+	if _browser_modal != null:
 		return
 
-	_open_browser_btn = Button.new()
-	_open_browser_btn.text = "AÇIK ODALARI ARA (PUBLIC)"
-	_open_browser_btn.add_theme_font_size_override("font_size", 10)
-	_open_browser_btn.add_theme_color_override("font_color", Color(0.45, 0.9, 1.0))
-	_open_browser_btn.pressed.connect(_on_open_browser_pressed)
+	_browser_backdrop = ColorRect.new()
+	_browser_backdrop.visible = false
+	_browser_backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_browser_backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
+	_browser_backdrop.z_index = 19
+	add_child(_browser_backdrop)
 
-	var status_idx: int = status_label.get_index()
-	vbox.add_child(_open_browser_btn)
-	vbox.move_child(_open_browser_btn, status_idx)
-
-	_browser_modal = PanelContainer.new()
+	_browser_modal = TextureRect.new()
 	_browser_modal.visible = false
-	_browser_modal.anchors_preset = Control.PRESET_CENTER
-	_browser_modal.anchor_left = 0.5
-	_browser_modal.anchor_top = 0.5
-	_browser_modal.anchor_right = 0.5
-	_browser_modal.anchor_bottom = 0.5
-	_browser_modal.offset_left = -220.0
-	_browser_modal.offset_top = -125.0
-	_browser_modal.offset_right = 220.0
-	_browser_modal.offset_bottom = 125.0
+	_browser_modal.texture = ROOM_BROWSER_PANEL_TEX
+	_browser_modal.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_browser_modal.stretch_mode = TextureRect.STRETCH_SCALE
+	_browser_modal.position = Vector2(100, 55)
+	_browser_modal.size = Vector2(441, 250)
 	_browser_modal.z_index = 20
 
-	var modal_style: StyleBoxFlat = StyleBoxFlat.new()
-	modal_style.bg_color = Color(0.05, 0.08, 0.14, 0.98)
-	modal_style.border_width_left = 2
-	modal_style.border_width_top = 2
-	modal_style.border_width_right = 2
-	modal_style.border_width_bottom = 2
-	modal_style.border_color = Color(0.32, 0.72, 0.96, 1.0)
-	modal_style.content_margin_left = 10.0
-	modal_style.content_margin_right = 10.0
-	modal_style.content_margin_top = 8.0
-	modal_style.content_margin_bottom = 8.0
-	_browser_modal.add_theme_stylebox_override("panel", modal_style)
-
-	var modal_vbox: VBoxContainer = VBoxContainer.new()
-	modal_vbox.add_theme_constant_override("separation", 6)
-
-	var header_row: HBoxContainer = HBoxContainer.new()
-	header_row.add_theme_constant_override("separation", 6)
-
-	var browser_title: Label = Label.new()
-	browser_title.text = "AÇIK ODALAR (PUBLIC) — ODA ARAMA"
-	browser_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	browser_title.add_theme_font_size_override("font_size", 11)
-	browser_title.add_theme_color_override("font_color", Color(0.45, 0.88, 1.0))
-	header_row.add_child(browser_title)
-
-	var close_btn: Button = Button.new()
-	close_btn.text = "X KAPAT"
-	close_btn.add_theme_font_size_override("font_size", 9)
+	var close_tex: AtlasTexture = AtlasTexture.new()
+	close_tex.atlas = ROOM_BROWSER_ELEMENTS_TEX
+	close_tex.region = Rect2(352, 0, 60, 23)
+	var close_btn: TextureButton = TextureButton.new()
+	close_btn.texture_normal = close_tex
+	close_btn.ignore_texture_size = true
+	close_btn.stretch_mode = TextureButton.STRETCH_SCALE
+	close_btn.position = Vector2(364, 11)
+	close_btn.size = Vector2(60, 23)
+	close_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	close_btn.pressed.connect(_on_close_browser_pressed)
-	header_row.add_child(close_btn)
-	modal_vbox.add_child(header_row)
+	_setup_texture_button(close_btn)
+	_browser_modal.add_child(close_btn)
 
-	var search_row: HBoxContainer = HBoxContainer.new()
-	search_row.add_theme_constant_override("separation", 6)
+	var search_tex: AtlasTexture = AtlasTexture.new()
+	search_tex.atlas = ROOM_BROWSER_ELEMENTS_TEX
+	search_tex.region = Rect2(0, 24, 348, 26)
+	var search_bg: TextureRect = TextureRect.new()
+	search_bg.texture = search_tex
+	search_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	search_bg.stretch_mode = TextureRect.STRETCH_SCALE
+	search_bg.position = Vector2(18, 37)
+	search_bg.size = Vector2(342, 24)
+	_browser_modal.add_child(search_bg)
 
+	var empty_style: StyleBoxEmpty = StyleBoxEmpty.new()
+	empty_style.content_margin_left = 4.0
+	empty_style.content_margin_right = 4.0
+	empty_style.content_margin_bottom = 3.0
 	_search_input = LineEdit.new()
-	_search_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_search_input.position = Vector2(22, -1)
+	_search_input.size = Vector2(314, 22)
 	_search_input.placeholder_text = "Oda kodu, kurucu veya görev ara..."
 	_search_input.add_theme_font_size_override("font_size", 9)
+	_search_input.add_theme_color_override("font_color", Color(0.92, 0.96, 1.0))
+	_search_input.add_theme_color_override("font_placeholder_color", Color(0.48, 0.60, 0.75, 0.85))
+	_search_input.add_theme_stylebox_override("normal", empty_style)
+	_search_input.add_theme_stylebox_override("focus", empty_style)
 	_search_input.text_changed.connect(_on_search_changed)
-	search_row.add_child(_search_input)
+	search_bg.add_child(_search_input)
 
-	var refresh_btn: Button = Button.new()
-	refresh_btn.text = "YENİLE"
-	refresh_btn.add_theme_font_size_override("font_size", 9)
-	refresh_btn.pressed.connect(_refresh_public_rooms)
-	search_row.add_child(refresh_btn)
-	modal_vbox.add_child(search_row)
+	var refresh_tex: AtlasTexture = AtlasTexture.new()
+	refresh_tex.atlas = ROOM_BROWSER_ELEMENTS_TEX
+	refresh_tex.region = Rect2(352, 25, 60, 23)
+	var refresh_btn: TextureButton = TextureButton.new()
+	refresh_btn.texture_normal = refresh_tex
+	refresh_btn.ignore_texture_size = true
+	refresh_btn.stretch_mode = TextureButton.STRETCH_SCALE
+	refresh_btn.position = Vector2(364, 37)
+	refresh_btn.size = Vector2(60, 23)
+	refresh_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	refresh_btn.pressed.connect(_refresh_public_rooms.bind(false))
+	_setup_texture_button(refresh_btn)
+	_browser_modal.add_child(refresh_btn)
 
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_rooms_scroll = ScrollContainer.new()
+	_rooms_scroll.position = Vector2(22, 70)
+	_rooms_scroll.size = Vector2(397, 160)
+	_rooms_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 
 	_public_rooms_list = VBoxContainer.new()
 	_public_rooms_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_public_rooms_list.add_theme_constant_override("separation", 4)
-	scroll.add_child(_public_rooms_list)
-	modal_vbox.add_child(scroll)
+	_rooms_scroll.add_child(_public_rooms_list)
+	_browser_modal.add_child(_rooms_scroll)
 
-	_browser_modal.add_child(modal_vbox)
+	_empty_state_box = VBoxContainer.new()
+	_empty_state_box.visible = false
+	_empty_state_box.position = Vector2(22, 70)
+	_empty_state_box.size = Vector2(397, 160)
+	_empty_state_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	_empty_state_box.add_theme_constant_override("separation", 8)
+
+	var astro_tex: AtlasTexture = AtlasTexture.new()
+	astro_tex.atlas = ROOM_BROWSER_ELEMENTS_TEX
+	astro_tex.region = Rect2(149, 78, 110, 65)
+	var astro_rect: TextureRect = TextureRect.new()
+	astro_rect.texture = astro_tex
+	astro_rect.custom_minimum_size = Vector2(110, 65)
+	astro_rect.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+	_empty_state_box.add_child(astro_rect)
+
+	_empty_state_label = Label.new()
+	_empty_state_label.text = "PUBLIC ODA BULUNAMADI"
+	_empty_state_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_empty_state_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_empty_state_label.add_theme_font_size_override("font_size", 10)
+	_empty_state_label.add_theme_color_override("font_color", Color(0.76, 0.87, 1.0))
+	_empty_state_label.add_theme_color_override("font_outline_color", Color(0.03, 0.05, 0.1, 0.95))
+	_empty_state_label.add_theme_constant_override("outline_size", 2)
+	_empty_state_label.add_theme_constant_override("line_spacing", 3)
+	_empty_state_box.add_child(_empty_state_label)
+	_browser_modal.add_child(_empty_state_box)
+
 	add_child(_browser_modal)
 
 func _on_open_browser_pressed() -> void:
 	if _browser_modal != null:
+		if _browser_backdrop != null:
+			_browser_backdrop.visible = true
 		_browser_modal.visible = true
 		_refresh_timer = 0.0
-		_refresh_public_rooms()
+		_refresh_public_rooms(true)
 
 func _on_close_browser_pressed() -> void:
 	if _browser_modal != null:
 		_browser_modal.visible = false
+	if _browser_backdrop != null:
+		_browser_backdrop.visible = false
 
 func _on_search_changed(_new_text: String) -> void:
-	_refresh_public_rooms()
+	_refresh_public_rooms(false)
 
-func _refresh_public_rooms() -> void:
+func _refresh_public_rooms(show_loading: bool = false) -> void:
 	if _public_rooms_list == null:
 		return
-	for child in _public_rooms_list.get_children():
-		child.queue_free()
-
-	var loading_lbl: Label = Label.new()
-	loading_lbl.text = "Açık odalar sunucudan yükleniyor..."
-	loading_lbl.add_theme_font_size_override("font_size", 9)
-	loading_lbl.add_theme_color_override("font_color", Color(0.65, 0.85, 1.0))
-	_public_rooms_list.add_child(loading_lbl)
+	var is_empty_already: bool = _empty_state_box != null and _empty_state_box.visible
+	if show_loading and not is_empty_already and _public_rooms_list.get_child_count() == 0:
+		if _rooms_scroll != null:
+			_rooms_scroll.visible = true
+		var loading_lbl: Label = Label.new()
+		loading_lbl.text = "Açık odalar sunucudan yükleniyor..."
+		loading_lbl.add_theme_font_size_override("font_size", 9)
+		loading_lbl.add_theme_color_override("font_color", Color(0.65, 0.85, 1.0))
+		_public_rooms_list.add_child(loading_lbl)
 
 	var query: String = _search_input.text if _search_input != null else ""
 	NetworkClient.fetch_public_rooms(query)
@@ -179,6 +257,10 @@ func _on_public_rooms_fetched(rooms: Array, error_msg: String) -> void:
 		child.queue_free()
 
 	if error_msg != "":
+		if _empty_state_box != null:
+			_empty_state_box.visible = false
+		if _rooms_scroll != null:
+			_rooms_scroll.visible = true
 		var err_lbl: Label = Label.new()
 		err_lbl.text = error_msg
 		err_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -188,13 +270,16 @@ func _on_public_rooms_fetched(rooms: Array, error_msg: String) -> void:
 		return
 
 	if rooms.is_empty():
-		var empty_lbl: Label = Label.new()
-		empty_lbl.text = "Açık (Public) oda bulunamadı. Özel odalar burada görünmez."
-		empty_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		empty_lbl.add_theme_font_size_override("font_size", 9)
-		empty_lbl.add_theme_color_override("font_color", Color(0.65, 0.72, 0.8))
-		_public_rooms_list.add_child(empty_lbl)
+		if _rooms_scroll != null:
+			_rooms_scroll.visible = false
+		if _empty_state_box != null:
+			_empty_state_box.visible = true
 		return
+
+	if _empty_state_box != null:
+		_empty_state_box.visible = false
+	if _rooms_scroll != null:
+		_rooms_scroll.visible = true
 
 	for r in rooms:
 		var code: String = String(r.get("room_code", ""))
@@ -224,20 +309,19 @@ func _on_public_rooms_fetched(rooms: Array, error_msg: String) -> void:
 
 func _set_connecting_state(connecting: bool, msg: String = "", color: Color = Color(0.55, 0.88, 1.0)) -> void:
 	_is_connecting = connecting
-	var create_btn: Button = get_node_or_null("CenterBox/MenuPanel/VBox/CreateRoomBtn") as Button
-	var join_btn: Button = get_node_or_null("CenterBox/MenuPanel/VBox/JoinRow/JoinBtn") as Button
-	var solo_btn: Button = get_node_or_null("CenterBox/MenuPanel/VBox/SoloBtn") as Button
-	if create_btn != null:
-		create_btn.disabled = connecting
-	if join_btn != null:
-		join_btn.disabled = connecting
-	if solo_btn != null:
-		solo_btn.disabled = connecting
-	if _open_browser_btn != null:
-		_open_browser_btn.disabled = connecting
+	var dim: Color = Color(0.6, 0.65, 0.7, 0.7) if connecting else Color.WHITE
+	for btn in [create_room_btn, join_btn, open_browser_btn]:
+		if btn != null:
+			btn.disabled = connecting
+			btn.scale = Vector2.ONE
+			btn.modulate = dim
 	if msg != "":
 		status_label.text = msg
 		status_label.add_theme_color_override("font_color", color)
+		status_label.visible = true
+	else:
+		status_label.text = ""
+		status_label.visible = false
 
 func _on_join_listed_room(code: String) -> void:
 	if _is_connecting:
@@ -248,7 +332,7 @@ func _on_join_listed_room(code: String) -> void:
 
 func _apply_nickname() -> void:
 	PlayerProfile.set_nickname(nickname_input.text)
-	status_label.text = "Profilin: %s" % PlayerProfile.full_tag
+	nickname_input.text = PlayerProfile.nickname
 
 func _on_create_room_pressed() -> void:
 	if _is_connecting:
@@ -275,6 +359,7 @@ func _on_join_room_pressed() -> void:
 	if code == "":
 		status_label.text = "Lütfen bir Oda Kodu girin (örn: KZM-47)!"
 		status_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.35))
+		status_label.visible = true
 		return
 	_set_connecting_state(true, "Odaya bağlanılıyor (%s)..." % code)
 	NetworkClient.join_room(code, PlayerProfile.full_tag)

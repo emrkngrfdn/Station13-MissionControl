@@ -1,5 +1,12 @@
+import fs from "node:fs";
 import http from "node:http";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { WebSocketServer, WebSocket } from "ws";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const LEADERBOARD_FILE = process.env.LEADERBOARD_FILE || path.join(__dirname, "leaderboard-data.json");
+const MAX_LEADERBOARD_RECORDS = 200;
 
 const PORT = Number(process.env.PORT || 8787);
 const MAX_PLAYERS = 4;
@@ -14,6 +21,63 @@ const CORS_HEADERS = {
 
 /** @type {Map<string, any>} */
 const rooms = new Map();
+
+/** @type {Array<any>} */
+let leaderboard = loadLeaderboard();
+
+function loadLeaderboard() {
+  try {
+    if (!fs.existsSync(LEADERBOARD_FILE)) return [];
+    const parsed = JSON.parse(fs.readFileSync(LEADERBOARD_FILE, "utf8"));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLeaderboard() {
+  try {
+    fs.writeFileSync(LEADERBOARD_FILE, JSON.stringify(leaderboard, null, 2), "utf8");
+  } catch (err) {
+    console.error("Failed to save leaderboard:", err);
+  }
+}
+
+function sortLeaderboard(list) {
+  list.sort((a, b) => {
+    const ta = Number(a.time_sec ?? 999999);
+    const tb = Number(b.time_sec ?? 999999);
+    if (Math.abs(ta - tb) < 0.05) {
+      return Number(b.score || 0) - Number(a.score || 0);
+    }
+    return ta - tb;
+  });
+}
+
+function readJsonBody(req, maxBytes = 8192) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > maxBytes) {
+        reject(new Error("Payload too large"));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => {
+      try {
+        const text = Buffer.concat(chunks).toString("utf8");
+        resolve(JSON.parse(text || "{}"));
+      } catch {
+        reject(new Error("Invalid JSON"));
+      }
+    });
+    req.on("error", reject);
+  });
+}
 
 function generateRoomCode() {
   const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -110,7 +174,7 @@ function sendJson(res, status, data) {
   res.end(JSON.stringify(data));
 }
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   if (req.method === "OPTIONS") {
     res.writeHead(204, CORS_HEADERS);
     res.end();
@@ -155,6 +219,67 @@ const server = http.createServer((req, res) => {
     }
     out.sort((a, b) => b.updated_at - a.updated_at);
     sendJson(res, 200, { ok: true, rooms: out.slice(0, 50) });
+    return;
+  }
+
+  if (url.pathname === "/api/leaderboard" && req.method === "GET") {
+    const missionId = (url.searchParams.get("mission_id") || "").trim();
+    sortLeaderboard(leaderboard);
+    const filtered = missionId
+      ? leaderboard.filter((r) => String(r.mission_id || "") === missionId)
+      : leaderboard;
+    sendJson(res, 200, { ok: true, records: filtered.slice(0, 100) });
+    return;
+  }
+
+  if (url.pathname === "/api/leaderboard" && req.method === "POST") {
+    try {
+      const body = await readJsonBody(req);
+      const missionId = String(body.mission_id || "").trim().slice(0, 64);
+      const team = String(body.team || "").trim().slice(0, 80);
+      const hostTag = String(body.host_tag || "").trim().slice(0, 64);
+      const playerCount = Math.max(1, Math.min(4, Number(body.player_count || 1) || 1));
+      const timeSec = Math.round(Number(body.time_sec) * 10) / 10;
+      const score = Math.max(0, Math.round(Number(body.score || 0)));
+
+      if (!missionId || !team || !Number.isFinite(timeSec) || timeSec <= 0) {
+        sendJson(res, 400, { ok: false, error: "Invalid leaderboard record" });
+        return;
+      }
+
+      const duplicate = leaderboard.find(
+        (r) =>
+          r.mission_id === missionId &&
+          r.team === team &&
+          Math.abs(Number(r.time_sec) - timeSec) < 0.05 &&
+          Number(r.score) === score
+      );
+
+      if (!duplicate) {
+        const record = {
+          mission_id: missionId,
+          team,
+          host_tag: hostTag,
+          player_count: playerCount,
+          time_sec: timeSec,
+          score,
+          created_at: Date.now(),
+        };
+        leaderboard.push(record);
+        sortLeaderboard(leaderboard);
+        if (leaderboard.length > MAX_LEADERBOARD_RECORDS) {
+          leaderboard = leaderboard.slice(0, MAX_LEADERBOARD_RECORDS);
+        }
+        saveLeaderboard();
+        sendJson(res, 201, { ok: true, record, records: leaderboard.slice(0, 100) });
+        return;
+      }
+
+      sortLeaderboard(leaderboard);
+      sendJson(res, 200, { ok: true, record: duplicate, records: leaderboard.slice(0, 100) });
+    } catch (err) {
+      sendJson(res, 400, { ok: false, error: err.message || "Bad request" });
+    }
     return;
   }
 

@@ -12,6 +12,7 @@
 [ext_resource type="Texture2D" uid="uid://sgpnploekpqb" path="res://assets/station_fg.png" id="10_fg"]
 [ext_resource type="Texture2D" uid="uid://cukxyh3svwj8y" path="res://assets/station_fg_walls.png" id="11_fg_walls"]
 [ext_resource type="PackedScene" path="res://scenes/ui/virtual_joystick.tscn" id="12_vj"]
+[ext_resource type="PackedScene" path="res://scenes/ui/interact_button.tscn" id="13_ib"]
 
 [node name="Station" type="Node2D" unique_id=719507966]
 y_sort_enabled = true
@@ -368,19 +369,17 @@ theme = ExtResource("5_theme")
 text = "Durum: Hazır"
 horizontal_alignment = 1
 
-[node name="InteractBtn" type="Button" parent="HUD" unique_id=1992894435]
-offset_left = 550.0
-offset_top = 330.0
-offset_right = 632.0
-offset_bottom = 356.0
-theme = ExtResource("5_theme")
-text = "INTERACT"
+[node name="InteractBtn" parent="HUD" unique_id=1992894435 instance=ExtResource("13_ib")]
+offset_left = 556.0
+offset_top = 282.0
+offset_right = 610.0
+offset_bottom = 340.0
 
 [node name="VirtualJoystick" parent="HUD" instance=ExtResource("12_vj")]
-offset_left = 22.0
-offset_top = 256.0
-offset_right = 98.0
-offset_bottom = 332.0
+offset_left = 0.0
+offset_top = 130.0
+offset_right = 240.0
+offset_bottom = 360.0
 
 [node name="MarketUI" parent="HUD" unique_id=1606265529 instance=ExtResource("6_market")]
 

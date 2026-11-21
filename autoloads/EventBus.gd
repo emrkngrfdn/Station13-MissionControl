@@ -20,4 +20,5 @@ signal box_picked_up(box_id: String, peer_id: int)
 signal box_dropped(box_id: String, pos: Vector2)
 signal box_installed(box_id: String)
 signal room_returned_to_lobby
+signal leaderboard_updated
 

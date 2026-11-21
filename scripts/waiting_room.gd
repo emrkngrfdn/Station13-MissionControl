@@ -80,11 +80,13 @@ func _ready() -> void:
 	EventBus.terminal_opened.connect(_on_terminal_opened)
 	EventBus.remote_player_updated.connect(_on_remote_player_updated)
 	EventBus.remote_player_left.connect(_on_remote_player_left)
+	EventBus.leaderboard_updated.connect(_refresh_leaderboard)
 	_on_lobby_updated(GameState.lobby_players)
 	_refresh_room_type_buttons()
 	_refresh_host_permissions()
 	_refresh_top_bar()
 	_refresh_leaderboard()
+	LeaderboardManager.fetch_from_server()
 
 func _exit_tree() -> void:
 	if EventBus.lobby_updated.is_connected(_on_lobby_updated):
@@ -97,6 +99,8 @@ func _exit_tree() -> void:
 		EventBus.remote_player_updated.disconnect(_on_remote_player_updated)
 	if EventBus.remote_player_left.is_connected(_on_remote_player_left):
 		EventBus.remote_player_left.disconnect(_on_remote_player_left)
+	if EventBus.leaderboard_updated.is_connected(_refresh_leaderboard):
+		EventBus.leaderboard_updated.disconnect(_refresh_leaderboard)
 
 func _process(delta: float) -> void:
 	_beacon_t += delta
@@ -148,7 +152,11 @@ func _populate_selectors() -> void:
 
 func _on_terminal_opened(terminal_name: String) -> void:
 	if terminal_name == "BRIEFING":
-		_set_settings_open(not settings_panel.visible)
+		var opening: bool = not settings_panel.visible
+		_set_settings_open(opening)
+		if opening:
+			LeaderboardManager.fetch_from_server()
+			_refresh_leaderboard()
 
 func _set_settings_open(is_open: bool) -> void:
 	settings_panel.visible = is_open
@@ -382,36 +390,37 @@ func _refresh_leaderboard() -> void:
 	for child in leaderboard_list.get_children():
 		child.queue_free()
 
-	var current_id: String = GameState.current_mission.get("id", "")
+	var current_id: String = String(GameState.current_mission.get("id", ""))
+	var mission_records: Array = LeaderboardManager.get_records_for_mission(current_id)
 	var count: int = 0
-	for rec in LeaderboardManager.records:
-		if rec.get("mission_id", "") == current_id:
-			var bar := TextureRect.new()
-			bar.custom_minimum_size = Vector2(236, 24)
-			var bar_atlas := AtlasTexture.new()
-			bar_atlas.atlas = SETTINGS_COLORS_BAR
-			bar_atlas.region = Rect2(0, 65, 267, 32)
-			bar.texture = bar_atlas
-			bar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	for rec in mission_records:
+		var bar := TextureRect.new()
+		bar.custom_minimum_size = Vector2(236, 24)
+		var bar_atlas := AtlasTexture.new()
+		bar_atlas.atlas = SETTINGS_COLORS_BAR
+		bar_atlas.region = Rect2(0, 65, 267, 32)
+		bar.texture = bar_atlas
+		bar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 
-			var lbl := Label.new()
-			lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
-			lbl.offset_left = 8
-			lbl.offset_right = -8
-			lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			lbl.add_theme_font_size_override("font_size", 8)
-			lbl.add_theme_color_override("font_color", Color(0.88, 0.96, 1.0, 1.0))
-			lbl.text = "%s — %.1fs | Skor: %d" % [
-				rec.get("team", ""),
-				float(rec.get("time_sec", 0.0)),
-				int(rec.get("score", 0))
-			]
-			lbl.clip_text = true
-			bar.add_child(lbl)
-			leaderboard_list.add_child(bar)
-			count += 1
-			if count >= 3:
-				break
+		var lbl := Label.new()
+		lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+		lbl.offset_left = 8
+		lbl.offset_right = -8
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lbl.add_theme_font_size_override("font_size", 8)
+		lbl.add_theme_color_override("font_color", Color(0.88, 0.96, 1.0, 1.0))
+		lbl.text = "#%d %s — %.1fs | Skor: %d" % [
+			count + 1,
+			String(rec.get("team", "")),
+			float(rec.get("time_sec", 0.0)),
+			int(rec.get("score", 0))
+		]
+		lbl.clip_text = true
+		bar.add_child(lbl)
+		leaderboard_list.add_child(bar)
+		count += 1
+		if count >= 3:
+			break
 	if count == 0:
 		var empty_lbl: Label = Label.new()
 		empty_lbl.text = "Bu görevde henüz rekor yok."

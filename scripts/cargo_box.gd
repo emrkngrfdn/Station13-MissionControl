@@ -63,6 +63,7 @@ func interact() -> void:
 		target_player.set("interactable_target", null)
 		reparent(target_player)
 		position = Vector2(0, -18)
+		visible = false
 		EventBus.status_message.emit("ALINDI: %s (Montaj Hangarı'na götür veya [E/Space] ile bırak)" % String(part_data.get("name", "Kargo")), false)
 		if GameState.is_network_active and box_id != "":
 			NetworkClient.send_relay("box_pickup", {

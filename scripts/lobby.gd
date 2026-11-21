@@ -32,12 +32,14 @@ func _ready() -> void:
 
 	EventBus.lobby_updated.connect(_refresh_crew_list)
 	EventBus.telemetry_changed.connect(_refresh_mission_info)
+	EventBus.leaderboard_updated.connect(_refresh_leaderboard)
 	if EventBus.has_signal("network_status_changed"):
 		EventBus.network_status_changed.connect(_on_network_status_changed)
 
 	_refresh_crew_list(GameState.lobby_players)
 	_refresh_mission_info()
 	_refresh_leaderboard()
+	LeaderboardManager.fetch_from_server()
 
 func _setup_extra_lobby_controls() -> void:
 	var crew_vbox: Node = crew_list.get_parent()
@@ -201,15 +203,7 @@ func _refresh_leaderboard() -> void:
 		child.queue_free()
 
 	var current_id: String = String(GameState.current_mission.get("id", ""))
-	var mission_records: Array = []
-
-	for rec in LeaderboardManager.records:
-		if String(rec.get("mission_id", "")) == current_id:
-			mission_records.append(rec)
-
-	mission_records.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return float(a.get("time_sec", 999999.0)) < float(b.get("time_sec", 999999.0))
-	)
+	var mission_records: Array = LeaderboardManager.get_records_for_mission(current_id)
 
 	if mission_records.is_empty():
 		var empty_lbl: Label = Label.new()
